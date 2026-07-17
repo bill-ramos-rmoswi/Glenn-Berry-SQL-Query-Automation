@@ -16,4 +16,33 @@ function Get-VersionFolderName {
     return $null
 }
 
-Export-ModuleMember -Function Get-VersionFolderName
+function Read-DiagnosticManifest {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$ManifestPath
+    )
+
+    return ,@(Get-Content -LiteralPath $ManifestPath -Raw | ConvertFrom-Json)
+}
+
+function Get-FilteredManifestQueries {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [array]$ManifestQueries,
+
+        [Parameter(Mandatory)]
+        [ValidateSet('Instance', 'Database')]
+        [string]$Scope,
+
+        [int[]]$ExcludedQueryNumbers = @()
+    )
+
+    $result = @($ManifestQueries |
+        Where-Object { $_.Scope -eq $Scope -and -not ($ExcludedQueryNumbers -contains $_.Number) } |
+        Sort-Object Number)
+    return $result
+}
+
+Export-ModuleMember -Function Get-VersionFolderName, Read-DiagnosticManifest, Get-FilteredManifestQueries
