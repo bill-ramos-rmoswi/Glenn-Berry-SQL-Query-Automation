@@ -143,32 +143,25 @@ function Invoke-SqlFileQuery {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
-        [System.Data.SqlClient.SqlConnection]$Connection,
+        [string]$ConnectionString,
 
         [Parameter(Mandatory)]
         [string]$QueryFilePath
     )
 
-    $commandText = Get-Content -LiteralPath $QueryFilePath -Raw
-    $command = $Connection.CreateCommand()
-    $command.CommandText = $commandText
-    $command.CommandTimeout = 120
+    $rows = @(Invoke-Sqlcmd -ConnectionString $ConnectionString -InputFile $QueryFilePath -ErrorAction Stop)
 
-    $adapter = New-Object System.Data.SqlClient.SqlDataAdapter $command
-    $table = New-Object System.Data.DataTable
-    [void]$adapter.Fill($table)
-
-    $rows = [System.Collections.Generic.List[pscustomobject]]::new()
-    foreach ($row in $table.Rows) {
+    $result = [System.Collections.Generic.List[pscustomobject]]::new()
+    foreach ($row in $rows) {
         $ordered = [ordered]@{}
-        foreach ($col in $table.Columns) {
+        foreach ($col in $row.Table.Columns) {
             $ordered[$col.ColumnName] = $row[$col]
         }
-        $rows.Add([pscustomobject]$ordered)
+        $result.Add([pscustomobject]$ordered)
     }
 
-    $result = @($rows.ToArray())
-    return $result
+    $output = @($result.ToArray())
+    return $output
 }
 
 function Invoke-DiagnosticRun {
@@ -200,14 +193,12 @@ function Invoke-DiagnosticRun {
         $serverName = $server.ServerName
         Write-Host "=== $serverName ==="
 
+        $connStr = Build-DiagnosticConnectionString -ServerName $serverName
+
         $majorVersion = $null
         try {
-            $conn = New-Object System.Data.SqlClient.SqlConnection (Build-DiagnosticConnectionString -ServerName $serverName)
-            $conn.Open()
-            $cmd = $conn.CreateCommand()
-            $cmd.CommandText = "SELECT CONVERT(int, SERVERPROPERTY('ProductMajorVersion'))"
-            $majorVersion = [int]$cmd.ExecuteScalar()
-            $conn.Close()
+            $verRow = Invoke-Sqlcmd -ConnectionString $connStr -Query "SELECT CONVERT(int, SERVERPROPERTY('ProductMajorVersion')) AS MajorVersion" -ErrorAction Stop
+            $majorVersion = [int]$verRow.MajorVersion
         }
         catch {
             $errors.Add([pscustomobject]@{ ServerName = $serverName; DatabaseName = ''; QueryNumber = ''; ShortName = ''; ErrorMessage = $_.Exception.Message; Timestamp = (Get-Date -Format o) })
@@ -226,18 +217,9 @@ function Invoke-DiagnosticRun {
         $instanceQueries = Get-FilteredManifestQueries -ManifestQueries $manifest -Scope 'Instance' -ExcludedQueryNumbers $excludedQueryNumbers
         $databaseQueries = Get-FilteredManifestQueries -ManifestQueries $manifest -Scope 'Database' -ExcludedQueryNumbers $excludedQueryNumbers
 
-        $conn = New-Object System.Data.SqlClient.SqlConnection (Build-DiagnosticConnectionString -ServerName $serverName)
-        try {
-            $conn.Open()
-        }
-        catch {
-            $errors.Add([pscustomobject]@{ ServerName = $serverName; DatabaseName = ''; QueryNumber = ''; ShortName = ''; ErrorMessage = $_.Exception.Message; Timestamp = (Get-Date -Format o) })
-            continue
-        }
-
         foreach ($q in $instanceQueries) {
             try {
-                $rows = @(Invoke-SqlFileQuery -Connection $conn -QueryFilePath (Join-Path $versionRoot $q.File))
+                $rows = @(Invoke-SqlFileQuery -ConnectionString $connStr -QueryFilePath (Join-Path $versionRoot $q.File))
                 $csvPath = Get-ResultCsvPath -RunFolder $RunFolder -ServerName $serverName -QueryNumber $q.Number -ShortName $q.ShortName
                 $rows | Export-Csv -LiteralPath $csvPath -NoTypeInformation -Encoding UTF8
             }
@@ -246,38 +228,22 @@ function Invoke-DiagnosticRun {
             }
         }
 
-        $dbTable = New-Object System.Data.DataTable
         try {
-            $dbCmd = $conn.CreateCommand()
-            $dbCmd.CommandText = 'SELECT name, database_id, state_desc FROM sys.databases'
-            $dbAdapter = New-Object System.Data.SqlClient.SqlDataAdapter $dbCmd
-            [void]$dbAdapter.Fill($dbTable)
+            $dbRows = @(Invoke-Sqlcmd -ConnectionString $connStr -Query 'SELECT name, database_id, state_desc FROM sys.databases' -ErrorAction Stop)
         }
         catch {
             $errors.Add([pscustomobject]@{ ServerName = $serverName; DatabaseName = ''; QueryNumber = ''; ShortName = ''; ErrorMessage = $_.Exception.Message; Timestamp = (Get-Date -Format o) })
-            $conn.Close()
             continue
         }
-        $conn.Close()
 
-        $databaseRows = foreach ($row in $dbTable.Rows) {
-            [pscustomobject]@{ name = $row['name']; database_id = $row['database_id']; state_desc = $row['state_desc'] }
-        }
-        $databaseNames = Get-OnlineUserDatabaseNames -DatabaseRows @($databaseRows) -ExcludedDatabases $excludedDatabases
+        $databaseNames = Get-OnlineUserDatabaseNames -DatabaseRows $dbRows -ExcludedDatabases $excludedDatabases
 
         foreach ($dbName in $databaseNames) {
-            $dbConn = New-Object System.Data.SqlClient.SqlConnection (Build-DiagnosticConnectionString -ServerName $serverName -Database $dbName)
-            try {
-                $dbConn.Open()
-            }
-            catch {
-                $errors.Add([pscustomobject]@{ ServerName = $serverName; DatabaseName = $dbName; QueryNumber = ''; ShortName = ''; ErrorMessage = $_.Exception.Message; Timestamp = (Get-Date -Format o) })
-                continue
-            }
+            $dbConnStr = Build-DiagnosticConnectionString -ServerName $serverName -Database $dbName
 
             foreach ($q in $databaseQueries) {
                 try {
-                    $rows = @(Invoke-SqlFileQuery -Connection $dbConn -QueryFilePath (Join-Path $versionRoot $q.File))
+                    $rows = @(Invoke-SqlFileQuery -ConnectionString $dbConnStr -QueryFilePath (Join-Path $versionRoot $q.File))
                     $prefixed = Add-ResultPrefixColumns -Rows $rows -PrefixColumns ([ordered]@{ ServerName = $serverName; DatabaseName = $dbName })
                     $csvPath = Get-ResultCsvPath -RunFolder $RunFolder -ServerName $serverName -DatabaseName $dbName -QueryNumber $q.Number -ShortName $q.ShortName
                     $prefixed | Export-Csv -LiteralPath $csvPath -NoTypeInformation -Encoding UTF8
@@ -286,8 +252,6 @@ function Invoke-DiagnosticRun {
                     $errors.Add([pscustomobject]@{ ServerName = $serverName; DatabaseName = $dbName; QueryNumber = $q.Number; ShortName = $q.ShortName; ErrorMessage = $_.Exception.Message; Timestamp = (Get-Date -Format o) })
                 }
             }
-
-            $dbConn.Close()
         }
     }
 
