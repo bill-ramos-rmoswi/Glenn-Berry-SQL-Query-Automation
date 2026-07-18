@@ -23,7 +23,9 @@ function Read-DiagnosticManifest {
         [string]$ManifestPath
     )
 
-    return ,@(Get-Content -LiteralPath $ManifestPath -Raw | ConvertFrom-Json)
+    $parsed = Get-Content -LiteralPath $ManifestPath -Raw | ConvertFrom-Json
+    $result = @($parsed)
+    return $result
 }
 
 function Get-FilteredManifestQueries {

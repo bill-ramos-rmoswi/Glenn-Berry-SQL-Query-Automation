@@ -29,6 +29,18 @@ Describe 'Read-DiagnosticManifest' {
         $result[0].Number | Should -Be 1
         $result[0].File | Should -Be 'Instance/Query01-Thing.sql'
     }
+
+    It 'correctly handles multiple manifest entries without array wrapping' {
+        $manifestPath = Join-Path $TestDrive 'manifest-multi.json'
+        '[{"Number":1,"ShortName":"A","Scope":"Instance","File":"a.sql"},{"Number":2,"ShortName":"B","Scope":"Instance","File":"b.sql"}]' |
+            Set-Content -LiteralPath $manifestPath -Encoding UTF8
+
+        $result = @(Read-DiagnosticManifest -ManifestPath $manifestPath)
+
+        $result.Count | Should -Be 2
+        $result[0].Number | Should -Be 1
+        $result[1].Number | Should -Be 2
+    }
 }
 
 Describe 'Get-FilteredManifestQueries' {
