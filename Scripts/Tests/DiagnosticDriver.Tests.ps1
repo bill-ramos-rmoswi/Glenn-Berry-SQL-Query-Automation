@@ -137,3 +137,26 @@ Describe 'Build-DiagnosticConnectionString' {
         $connString | Should -Be 'Server=localhost;Database=LMS;Integrated Security=True;Encrypt=Mandatory;TrustServerCertificate=True;Connection Timeout=15'
     }
 }
+
+Describe 'Get-OnlineUserDatabaseNames' {
+    BeforeAll {
+        Import-Module "$PSScriptRoot/../Modules/DiagnosticDriver.psm1" -Force
+
+        $script:rows = @(
+            [pscustomobject]@{ name = 'master'; database_id = 1; state_desc = 'ONLINE' }
+            [pscustomobject]@{ name = 'LMS'; database_id = 5; state_desc = 'ONLINE' }
+            [pscustomobject]@{ name = 'Archive'; database_id = 6; state_desc = 'OFFLINE' }
+            [pscustomobject]@{ name = 'Scratch'; database_id = 7; state_desc = 'ONLINE' }
+        )
+    }
+
+    It 'excludes system databases and offline databases' {
+        $result = @(Get-OnlineUserDatabaseNames -DatabaseRows $rows -ExcludedDatabases @())
+        $result | Should -Be @('LMS', 'Scratch')
+    }
+
+    It 'excludes names in ExcludedDatabases' {
+        $result = @(Get-OnlineUserDatabaseNames -DatabaseRows $rows -ExcludedDatabases @('Scratch'))
+        $result | Should -Be @('LMS')
+    }
+}

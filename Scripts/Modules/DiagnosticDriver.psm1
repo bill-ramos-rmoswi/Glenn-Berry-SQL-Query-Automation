@@ -121,4 +121,22 @@ function Build-DiagnosticConnectionString {
     return "Server=$ServerName;Database=$Database;Integrated Security=True;Encrypt=Mandatory;TrustServerCertificate=True;Connection Timeout=15"
 }
 
-Export-ModuleMember -Function Get-VersionFolderName, Read-DiagnosticManifest, Get-FilteredManifestQueries, Add-ResultPrefixColumns, Get-ResultCsvPath, Build-DiagnosticConnectionString
+function Get-OnlineUserDatabaseNames {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [array]$DatabaseRows,
+
+        [string[]]$ExcludedDatabases = @()
+    )
+
+    $result = @(
+        $DatabaseRows |
+            Where-Object { $_.database_id -gt 4 -and $_.state_desc -eq 'ONLINE' -and ($ExcludedDatabases -notcontains $_.name) } |
+            Sort-Object name |
+            ForEach-Object { $_.name }
+    )
+    return $result
+}
+
+Export-ModuleMember -Function Get-VersionFolderName, Read-DiagnosticManifest, Get-FilteredManifestQueries, Add-ResultPrefixColumns, Get-ResultCsvPath, Build-DiagnosticConnectionString, Get-OnlineUserDatabaseNames
