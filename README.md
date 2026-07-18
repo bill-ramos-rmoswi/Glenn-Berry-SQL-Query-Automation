@@ -67,6 +67,18 @@ This creates `Results/<yyyyMMdd_HHmmss>/` containing:
 
 `Results/` is gitignored — each run's output stays local.
 
+## Packaging for a customer
+
+To hand a customer a self-contained zip they can run without cloning the repo:
+
+```powershell
+powershell -NoProfile -File Scripts/New-CustomerPackage.ps1
+```
+
+This stages the runtime-only files (`Invoke-DiagnosticRun.ps1`, `Modules/`, `config/`, `QueryLibrary/`) plus
+`CUSTOMER_INSTRUCTIONS.md` into `dist/GlennBerryDiagnostics_<timestamp>/` and zips it. `dist/` is gitignored.
+The customer edits `config/servers.json`, runs the script, and zips the resulting `Results/` folder back to you.
+
 ## Regenerating the query library
 
 Only needed if you add a new Glenn Berry source file to `SQL-Diag-Source-Files/`:
