@@ -129,12 +129,12 @@ Describe 'Build-DiagnosticConnectionString' {
 
     It 'defaults to the master database with Integrated Security and mandatory encryption' {
         $connString = Build-DiagnosticConnectionString -ServerName 'localhost'
-        $connString | Should -Be 'Server=localhost;Database=master;Integrated Security=True;Encrypt=Mandatory;TrustServerCertificate=True;Connection Timeout=15'
+        $connString | Should -Be 'Server=localhost;Database=master;Integrated Security=True;Encrypt=True;TrustServerCertificate=True;Connection Timeout=15'
     }
 
     It 'uses the given database name when provided' {
         $connString = Build-DiagnosticConnectionString -ServerName 'localhost' -Database 'LMS'
-        $connString | Should -Be 'Server=localhost;Database=LMS;Integrated Security=True;Encrypt=Mandatory;TrustServerCertificate=True;Connection Timeout=15'
+        $connString | Should -Be 'Server=localhost;Database=LMS;Integrated Security=True;Encrypt=True;TrustServerCertificate=True;Connection Timeout=15'
     }
 }
 

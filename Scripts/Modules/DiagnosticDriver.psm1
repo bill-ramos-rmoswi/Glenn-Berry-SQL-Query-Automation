@@ -118,7 +118,7 @@ function Build-DiagnosticConnectionString {
         [string]$Database = 'master'
     )
 
-    return "Server=$ServerName;Database=$Database;Integrated Security=True;Encrypt=Mandatory;TrustServerCertificate=True;Connection Timeout=15"
+    return "Server=$ServerName;Database=$Database;Integrated Security=True;Encrypt=True;TrustServerCertificate=True;Connection Timeout=15"
 }
 
 function Get-OnlineUserDatabaseNames {
