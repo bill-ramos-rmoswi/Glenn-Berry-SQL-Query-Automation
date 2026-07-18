@@ -47,4 +47,31 @@ function Get-FilteredManifestQueries {
     return $result
 }
 
-Export-ModuleMember -Function Get-VersionFolderName, Read-DiagnosticManifest, Get-FilteredManifestQueries
+function Add-ResultPrefixColumns {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [array]$Rows,
+
+        [Parameter(Mandatory)]
+        [System.Collections.Specialized.OrderedDictionary]$PrefixColumns
+    )
+
+    $output = [System.Collections.Generic.List[pscustomobject]]::new()
+    foreach ($row in $Rows) {
+        $ordered = [ordered]@{}
+        foreach ($key in $PrefixColumns.Keys) {
+            $ordered[$key] = $PrefixColumns[$key]
+        }
+        foreach ($prop in $row.PSObject.Properties) {
+            $ordered[$prop.Name] = $prop.Value
+        }
+        $output.Add([pscustomobject]$ordered)
+    }
+
+    $result = @($output.ToArray())
+    return $result
+}
+
+Export-ModuleMember -Function Get-VersionFolderName, Read-DiagnosticManifest, Get-FilteredManifestQueries, Add-ResultPrefixColumns

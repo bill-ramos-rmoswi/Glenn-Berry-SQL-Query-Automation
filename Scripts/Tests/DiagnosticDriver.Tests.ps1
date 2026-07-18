@@ -69,3 +69,34 @@ Describe 'Get-FilteredManifestQueries' {
         $result[0].Number | Should -Be 1
     }
 }
+
+Describe 'Add-ResultPrefixColumns' {
+    BeforeAll {
+        Import-Module "$PSScriptRoot/../Modules/DiagnosticDriver.psm1" -Force
+    }
+
+    It 'prepends the given columns to every row, preserving original column order' {
+        $rows = @(
+            [pscustomobject]@{ DatabaseName2 = 'ignored-name-collision-check'; SizeMB = 100 }
+            [pscustomobject]@{ DatabaseName2 = 'ignored-name-collision-check'; SizeMB = 200 }
+        )
+        $prefix = [ordered]@{ ServerName = 'localhost'; DatabaseName = 'LMS' }
+
+        $result = @(Add-ResultPrefixColumns -Rows $rows -PrefixColumns $prefix)
+
+        $result.Count | Should -Be 2
+        $propNames = $result[0].PSObject.Properties.Name
+        $propNames[0] | Should -Be 'ServerName'
+        $propNames[1] | Should -Be 'DatabaseName'
+        $propNames[2] | Should -Be 'DatabaseName2'
+        $propNames[3] | Should -Be 'SizeMB'
+        $result[0].ServerName | Should -Be 'localhost'
+        $result[0].DatabaseName | Should -Be 'LMS'
+        $result[1].SizeMB | Should -Be 200
+    }
+
+    It 'returns an empty array for empty input' {
+        $result = @(Add-ResultPrefixColumns -Rows @() -PrefixColumns ([ordered]@{ ServerName = 'localhost' }))
+        $result.Count | Should -Be 0
+    }
+}
