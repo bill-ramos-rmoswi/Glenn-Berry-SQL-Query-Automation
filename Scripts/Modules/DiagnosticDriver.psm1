@@ -227,7 +227,13 @@ function Invoke-DiagnosticRun {
         $databaseQueries = Get-FilteredManifestQueries -ManifestQueries $manifest -Scope 'Database' -ExcludedQueryNumbers $excludedQueryNumbers
 
         $conn = New-Object System.Data.SqlClient.SqlConnection (Build-DiagnosticConnectionString -ServerName $serverName)
-        $conn.Open()
+        try {
+            $conn.Open()
+        }
+        catch {
+            $errors.Add([pscustomobject]@{ ServerName = $serverName; DatabaseName = ''; QueryNumber = ''; ShortName = ''; ErrorMessage = $_.Exception.Message; Timestamp = (Get-Date -Format o) })
+            continue
+        }
 
         foreach ($q in $instanceQueries) {
             try {
@@ -240,11 +246,18 @@ function Invoke-DiagnosticRun {
             }
         }
 
-        $dbCmd = $conn.CreateCommand()
-        $dbCmd.CommandText = 'SELECT name, database_id, state_desc FROM sys.databases'
-        $dbAdapter = New-Object System.Data.SqlClient.SqlDataAdapter $dbCmd
         $dbTable = New-Object System.Data.DataTable
-        [void]$dbAdapter.Fill($dbTable)
+        try {
+            $dbCmd = $conn.CreateCommand()
+            $dbCmd.CommandText = 'SELECT name, database_id, state_desc FROM sys.databases'
+            $dbAdapter = New-Object System.Data.SqlClient.SqlDataAdapter $dbCmd
+            [void]$dbAdapter.Fill($dbTable)
+        }
+        catch {
+            $errors.Add([pscustomobject]@{ ServerName = $serverName; DatabaseName = ''; QueryNumber = ''; ShortName = ''; ErrorMessage = $_.Exception.Message; Timestamp = (Get-Date -Format o) })
+            $conn.Close()
+            continue
+        }
         $conn.Close()
 
         $databaseRows = foreach ($row in $dbTable.Rows) {
