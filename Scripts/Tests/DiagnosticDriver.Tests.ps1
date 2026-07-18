@@ -100,3 +100,24 @@ Describe 'Add-ResultPrefixColumns' {
         $result.Count | Should -Be 0
     }
 }
+
+Describe 'Get-ResultCsvPath' {
+    BeforeAll {
+        Import-Module "$PSScriptRoot/../Modules/DiagnosticDriver.psm1" -Force
+    }
+
+    It 'builds an instance-level path with no database segment' {
+        $path = Get-ResultCsvPath -RunFolder 'C:\Results\run1' -ServerName 'localhost' -QueryNumber 1 -ShortName 'Version Info'
+        $path | Should -Be 'C:\Results\run1\localhost-Query-1-Version Info.csv'
+    }
+
+    It 'builds a database-level path including the database name' {
+        $path = Get-ResultCsvPath -RunFolder 'C:\Results\run1' -ServerName 'localhost' -DatabaseName 'LMS' -QueryNumber 52 -ShortName 'DB Properties'
+        $path | Should -Be 'C:\Results\run1\localhost-LMS-Query-52-DB Properties.csv'
+    }
+
+    It 'sanitizes filesystem-invalid characters in the short name' {
+        $path = Get-ResultCsvPath -RunFolder 'C:\Results\run1' -ServerName 'localhost' -QueryNumber 1 -ShortName 'A/B:C'
+        $path | Should -Be 'C:\Results\run1\localhost-Query-1-A-B-C.csv'
+    }
+}

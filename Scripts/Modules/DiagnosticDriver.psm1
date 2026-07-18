@@ -74,4 +74,39 @@ function Add-ResultPrefixColumns {
     return $result
 }
 
-Export-ModuleMember -Function Get-VersionFolderName, Read-DiagnosticManifest, Get-FilteredManifestQueries, Add-ResultPrefixColumns
+function Get-ResultCsvPath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RunFolder,
+
+        [Parameter(Mandatory)]
+        [string]$ServerName,
+
+        [string]$DatabaseName = '',
+
+        [Parameter(Mandatory)]
+        [int]$QueryNumber,
+
+        [Parameter(Mandatory)]
+        [string]$ShortName
+    )
+
+    $invalidChars = [regex]::Escape(([System.IO.Path]::GetInvalidFileNameChars() -join ''))
+    $pattern = "[$invalidChars]"
+
+    $safeServer = $ServerName -replace $pattern, '-'
+    $safeShort = $ShortName -replace $pattern, '-'
+
+    if ([string]::IsNullOrEmpty($DatabaseName)) {
+        $fileName = '{0}-Query-{1}-{2}.csv' -f $safeServer, $QueryNumber, $safeShort
+    }
+    else {
+        $safeDb = $DatabaseName -replace $pattern, '-'
+        $fileName = '{0}-{1}-Query-{2}-{3}.csv' -f $safeServer, $safeDb, $QueryNumber, $safeShort
+    }
+
+    return Join-Path $RunFolder $fileName
+}
+
+Export-ModuleMember -Function Get-VersionFolderName, Read-DiagnosticManifest, Get-FilteredManifestQueries, Add-ResultPrefixColumns, Get-ResultCsvPath
