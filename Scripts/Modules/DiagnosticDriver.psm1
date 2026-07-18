@@ -237,7 +237,7 @@ function Invoke-DiagnosticRun {
 
         foreach ($q in $instanceQueries) {
             try {
-                $rows = Invoke-SqlFileQuery -Connection $conn -QueryFilePath (Join-Path $versionRoot $q.File)
+                $rows = @(Invoke-SqlFileQuery -Connection $conn -QueryFilePath (Join-Path $versionRoot $q.File))
                 $csvPath = Get-ResultCsvPath -RunFolder $RunFolder -ServerName $serverName -QueryNumber $q.Number -ShortName $q.ShortName
                 $rows | Export-Csv -LiteralPath $csvPath -NoTypeInformation -Encoding UTF8
             }
@@ -277,7 +277,7 @@ function Invoke-DiagnosticRun {
 
             foreach ($q in $databaseQueries) {
                 try {
-                    $rows = Invoke-SqlFileQuery -Connection $dbConn -QueryFilePath (Join-Path $versionRoot $q.File)
+                    $rows = @(Invoke-SqlFileQuery -Connection $dbConn -QueryFilePath (Join-Path $versionRoot $q.File))
                     $prefixed = Add-ResultPrefixColumns -Rows $rows -PrefixColumns ([ordered]@{ ServerName = $serverName; DatabaseName = $dbName })
                     $csvPath = Get-ResultCsvPath -RunFolder $RunFolder -ServerName $serverName -DatabaseName $dbName -QueryNumber $q.Number -ShortName $q.ShortName
                     $prefixed | Export-Csv -LiteralPath $csvPath -NoTypeInformation -Encoding UTF8
