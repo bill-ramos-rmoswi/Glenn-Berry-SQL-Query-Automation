@@ -1,10 +1,15 @@
 [CmdletBinding()]
 param(
-    [string]$ServersConfigPath = (Join-Path $PSScriptRoot 'config/servers.json'),
-    [string]$ExclusionsConfigPath = (Join-Path $PSScriptRoot 'config/exclusions.json'),
-    [string]$QueryLibraryRoot = (Join-Path $PSScriptRoot 'QueryLibrary'),
-    [string]$ResultsRoot = (Join-Path $PSScriptRoot '../Results')
+    [string]$ServersConfigPath,
+    [string]$ExclusionsConfigPath,
+    [string]$QueryLibraryRoot,
+    [string]$ResultsRoot
 )
+
+if (-not $ServersConfigPath) { $ServersConfigPath = Join-Path $PSScriptRoot 'config/servers.json' }
+if (-not $ExclusionsConfigPath) { $ExclusionsConfigPath = Join-Path $PSScriptRoot 'config/exclusions.json' }
+if (-not $QueryLibraryRoot) { $QueryLibraryRoot = Join-Path $PSScriptRoot 'QueryLibrary' }
+if (-not $ResultsRoot) { $ResultsRoot = Join-Path $PSScriptRoot '../Results' }
 
 Import-Module (Join-Path $PSScriptRoot 'Modules/DiagnosticDriver.psm1') -Force
 
