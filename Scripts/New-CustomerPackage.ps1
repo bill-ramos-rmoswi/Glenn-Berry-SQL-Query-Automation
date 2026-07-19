@@ -1,9 +1,12 @@
 [CmdletBinding()]
 param(
-    [string]$OutputRoot = (Join-Path $PSScriptRoot '../dist')
+    [string]$OutputRoot
 )
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
+if (-not $OutputRoot) {
+    $OutputRoot = Join-Path $PSScriptRoot '../dist'
+}
 $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
 $packageName = "GlennBerryDiagnostics_$timestamp"
 $stagingDir = Join-Path $OutputRoot $packageName
