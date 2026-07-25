@@ -1,15 +1,26 @@
 Describe 'Get-VersionFolderName' {
     BeforeAll {
         Import-Module "$PSScriptRoot/../Modules/DiagnosticDriver.psm1" -Force
+        $script:realQueryLibraryRoot = "$PSScriptRoot/../QueryLibrary"
     }
 
-    It 'maps known ProductMajorVersion numbers to their query library folder' {
-        Get-VersionFolderName -ProductMajorVersion 16 | Should -Be 'SQL Server 2022'
-        Get-VersionFolderName -ProductMajorVersion 13 | Should -Be 'SQL Server 2016 SP2'
+    It 'maps known ProductMajorVersion numbers to their query library folder when the folder exists' {
+        Get-VersionFolderName -ProductMajorVersion 13 -QueryLibraryRoot $realQueryLibraryRoot | Should -Be 'SQL Server 2016 SP2'
+        Get-VersionFolderName -ProductMajorVersion 14 -QueryLibraryRoot $realQueryLibraryRoot | Should -Be 'SQL Server 2017'
+        Get-VersionFolderName -ProductMajorVersion 15 -QueryLibraryRoot $realQueryLibraryRoot | Should -Be 'SQL Server 2019'
+        Get-VersionFolderName -ProductMajorVersion 16 -QueryLibraryRoot $realQueryLibraryRoot | Should -Be 'SQL Server 2022'
+        Get-VersionFolderName -ProductMajorVersion 17 -QueryLibraryRoot $realQueryLibraryRoot | Should -Be 'SQL Server 2025'
     }
 
     It 'returns $null for an unmapped version' {
-        Get-VersionFolderName -ProductMajorVersion 99 | Should -Be $null
+        Get-VersionFolderName -ProductMajorVersion 99 -QueryLibraryRoot $realQueryLibraryRoot | Should -Be $null
+    }
+
+    It 'returns $null for a mapped version whose query library folder does not exist' {
+        $emptyRoot = Join-Path $TestDrive 'EmptyQueryLibrary'
+        New-Item -ItemType Directory -Path $emptyRoot -Force | Out-Null
+
+        Get-VersionFolderName -ProductMajorVersion 16 -QueryLibraryRoot $emptyRoot | Should -Be $null
     }
 }
 
@@ -135,6 +146,69 @@ Describe 'Build-DiagnosticConnectionString' {
     It 'uses the given database name when provided' {
         $connString = Build-DiagnosticConnectionString -ServerName 'localhost' -Database 'LMS'
         $connString | Should -Be 'Server=localhost;Database=LMS;Integrated Security=True;Encrypt=True;TrustServerCertificate=True;Connection Timeout=15'
+    }
+
+    It 'uses Encrypt=False when -Encrypt $false is passed' {
+        $connString = Build-DiagnosticConnectionString -ServerName 'localhost' -Encrypt $false
+        $connString | Should -Be 'Server=localhost;Database=master;Integrated Security=True;Encrypt=False;TrustServerCertificate=True;Connection Timeout=15'
+    }
+}
+
+Describe 'Test-ServerConnection' {
+    BeforeAll {
+        Import-Module "$PSScriptRoot/../Modules/DiagnosticDriver.psm1" -Force
+    }
+
+    It 'succeeds on the first attempt with Encrypt=True' {
+        Mock -CommandName Invoke-Sqlcmd -ModuleName DiagnosticDriver { return [pscustomobject]@{} }
+
+        $result = Test-ServerConnection -ServerName 'localhost'
+
+        $result.Success | Should -Be $true
+        $result.Encrypt | Should -Be $true
+        $result.ConnectionString | Should -Match 'Encrypt=True'
+        Should -Invoke -CommandName Invoke-Sqlcmd -ModuleName DiagnosticDriver -Times 1
+    }
+
+    It 'falls back to Encrypt=False when the first attempt fails' {
+        Mock -CommandName Invoke-Sqlcmd -ModuleName DiagnosticDriver {
+            if ($ConnectionString -match 'Encrypt=True') {
+                throw 'A connection was successfully established with the server, but then an error occurred'
+            }
+            return [pscustomobject]@{}
+        }
+
+        $result = Test-ServerConnection -ServerName 'localhost'
+
+        $result.Success | Should -Be $true
+        $result.Encrypt | Should -Be $false
+        $result.ConnectionString | Should -Match 'Encrypt=False'
+        Should -Invoke -CommandName Invoke-Sqlcmd -ModuleName DiagnosticDriver -Times 2
+    }
+
+    It 'reports failure with the last error message when both attempts fail' {
+        Mock -CommandName Invoke-Sqlcmd -ModuleName DiagnosticDriver { throw 'Cannot connect' }
+
+        $result = Test-ServerConnection -ServerName 'unreachable-host'
+
+        $result.Success | Should -Be $false
+        $result.ConnectionString | Should -Be $null
+        $result.ErrorMessage | Should -Match 'Cannot connect'
+        Should -Invoke -CommandName Invoke-Sqlcmd -ModuleName DiagnosticDriver -Times 2
+    }
+}
+
+Describe 'Get-SanitizedFileSystemName' {
+    BeforeAll {
+        Import-Module "$PSScriptRoot/../Modules/DiagnosticDriver.psm1" -Force
+    }
+
+    It 'replaces filesystem-invalid characters with a hyphen' {
+        Get-SanitizedFileSystemName -Name 'A/B:C' | Should -Be 'A-B-C'
+    }
+
+    It 'leaves valid names unchanged' {
+        Get-SanitizedFileSystemName -Name 'localhost' | Should -Be 'localhost'
     }
 }
 

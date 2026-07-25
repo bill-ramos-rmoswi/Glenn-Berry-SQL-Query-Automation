@@ -2,18 +2,29 @@ function Get-VersionFolderName {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
-        [int]$ProductMajorVersion
+        [int]$ProductMajorVersion,
+
+        [Parameter(Mandatory)]
+        [string]$QueryLibraryRoot
     )
 
     $map = @{
         13 = 'SQL Server 2016 SP2'
+        14 = 'SQL Server 2017'
+        15 = 'SQL Server 2019'
         16 = 'SQL Server 2022'
+        17 = 'SQL Server 2025'
     }
 
-    if ($map.ContainsKey($ProductMajorVersion)) {
-        return $map[$ProductMajorVersion]
+    if (-not $map.ContainsKey($ProductMajorVersion)) {
+        return $null
     }
-    return $null
+
+    $folderPath = Join-Path $QueryLibraryRoot $map[$ProductMajorVersion]
+    if (-not (Test-Path -LiteralPath $folderPath -PathType Container)) {
+        return $null
+    }
+    return $map[$ProductMajorVersion]
 }
 
 function Read-DiagnosticManifest {
@@ -74,6 +85,17 @@ function Add-ResultPrefixColumns {
     return $result
 }
 
+function Get-SanitizedFileSystemName {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Name
+    )
+
+    $invalidChars = [regex]::Escape(([System.IO.Path]::GetInvalidFileNameChars() -join ''))
+    return ($Name -replace "[$invalidChars]", '-')
+}
+
 function Get-ResultCsvPath {
     [CmdletBinding()]
     param(
@@ -92,17 +114,14 @@ function Get-ResultCsvPath {
         [string]$ShortName
     )
 
-    $invalidChars = [regex]::Escape(([System.IO.Path]::GetInvalidFileNameChars() -join ''))
-    $pattern = "[$invalidChars]"
-
-    $safeServer = $ServerName -replace $pattern, '-'
-    $safeShort = $ShortName -replace $pattern, '-'
+    $safeServer = Get-SanitizedFileSystemName -Name $ServerName
+    $safeShort = Get-SanitizedFileSystemName -Name $ShortName
 
     if ([string]::IsNullOrEmpty($DatabaseName)) {
         $fileName = '{0}-Query-{1}-{2}.csv' -f $safeServer, $QueryNumber, $safeShort
     }
     else {
-        $safeDb = $DatabaseName -replace $pattern, '-'
+        $safeDb = Get-SanitizedFileSystemName -Name $DatabaseName
         $fileName = '{0}-{1}-Query-{2}-{3}.csv' -f $safeServer, $safeDb, $QueryNumber, $safeShort
     }
 
@@ -115,10 +134,34 @@ function Build-DiagnosticConnectionString {
         [Parameter(Mandatory)]
         [string]$ServerName,
 
-        [string]$Database = 'master'
+        [string]$Database = 'master',
+
+        [bool]$Encrypt = $true
     )
 
-    return "Server=$ServerName;Database=$Database;Integrated Security=True;Encrypt=True;TrustServerCertificate=True;Connection Timeout=15"
+    $encryptValue = if ($Encrypt) { 'True' } else { 'False' }
+    return "Server=$ServerName;Database=$Database;Integrated Security=True;Encrypt=$encryptValue;TrustServerCertificate=True;Connection Timeout=15"
+}
+
+function Test-ServerConnection {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$ServerName
+    )
+
+    $lastError = $null
+    foreach ($encrypt in @($true, $false)) {
+        $connStr = Build-DiagnosticConnectionString -ServerName $ServerName -Encrypt $encrypt
+        try {
+            Invoke-Sqlcmd -ConnectionString $connStr -Query 'SELECT @@VERSION;' -ErrorAction Stop | Out-Null
+            return [pscustomobject]@{ Success = $true; ConnectionString = $connStr; Encrypt = $encrypt; ErrorMessage = $null }
+        }
+        catch {
+            $lastError = $_.Exception.Message
+        }
+    }
+    return [pscustomobject]@{ Success = $false; ConnectionString = $null; Encrypt = $null; ErrorMessage = $lastError }
 }
 
 function Get-OnlineUserDatabaseNames {
@@ -187,13 +230,27 @@ function Invoke-DiagnosticRun {
     $excludedDatabases = @($exclusions.ExcludedDatabases)
     $excludedQueryNumbers = @($exclusions.ExcludedQueryNumbers)
 
-    $errors = [System.Collections.Generic.List[pscustomobject]]::new()
+    $totalErrorCount = 0
 
     foreach ($server in $servers) {
         $serverName = $server.ServerName
         Write-Host "=== $serverName ==="
 
-        $connStr = Build-DiagnosticConnectionString -ServerName $serverName
+        $serverFolder = Join-Path $RunFolder (Get-SanitizedFileSystemName -Name $serverName)
+        New-Item -ItemType Directory -Path $serverFolder -Force | Out-Null
+
+        $serverErrors = [System.Collections.Generic.List[pscustomobject]]::new()
+
+        $connectionResult = Test-ServerConnection -ServerName $serverName
+        if (-not $connectionResult.Success) {
+            $serverErrors.Add([pscustomobject]@{ ServerName = $serverName; DatabaseName = ''; QueryNumber = ''; ShortName = ''; ErrorMessage = $connectionResult.ErrorMessage; Timestamp = (Get-Date -Format o) })
+            $serverErrors | Export-Csv -LiteralPath (Join-Path $serverFolder 'errors.csv') -NoTypeInformation -Encoding UTF8
+            $totalErrorCount += $serverErrors.Count
+            continue
+        }
+
+        $connStr = $connectionResult.ConnectionString
+        $encrypt = $connectionResult.Encrypt
 
         $majorVersion = $null
         try {
@@ -201,13 +258,17 @@ function Invoke-DiagnosticRun {
             $majorVersion = [int]$verRow.MajorVersion
         }
         catch {
-            $errors.Add([pscustomobject]@{ ServerName = $serverName; DatabaseName = ''; QueryNumber = ''; ShortName = ''; ErrorMessage = $_.Exception.Message; Timestamp = (Get-Date -Format o) })
+            $serverErrors.Add([pscustomobject]@{ ServerName = $serverName; DatabaseName = ''; QueryNumber = ''; ShortName = ''; ErrorMessage = $_.Exception.Message; Timestamp = (Get-Date -Format o) })
+            $serverErrors | Export-Csv -LiteralPath (Join-Path $serverFolder 'errors.csv') -NoTypeInformation -Encoding UTF8
+            $totalErrorCount += $serverErrors.Count
             continue
         }
 
-        $versionFolder = Get-VersionFolderName -ProductMajorVersion $majorVersion
+        $versionFolder = Get-VersionFolderName -ProductMajorVersion $majorVersion -QueryLibraryRoot $QueryLibraryRoot
         if (-not $versionFolder) {
-            $errors.Add([pscustomobject]@{ ServerName = $serverName; DatabaseName = ''; QueryNumber = ''; ShortName = ''; ErrorMessage = "No query library for ProductMajorVersion $majorVersion"; Timestamp = (Get-Date -Format o) })
+            $serverErrors.Add([pscustomobject]@{ ServerName = $serverName; DatabaseName = ''; QueryNumber = ''; ShortName = ''; ErrorMessage = "No query library for ProductMajorVersion $majorVersion"; Timestamp = (Get-Date -Format o) })
+            $serverErrors | Export-Csv -LiteralPath (Join-Path $serverFolder 'errors.csv') -NoTypeInformation -Encoding UTF8
+            $totalErrorCount += $serverErrors.Count
             continue
         }
 
@@ -220,11 +281,11 @@ function Invoke-DiagnosticRun {
         foreach ($q in $instanceQueries) {
             try {
                 $rows = @(Invoke-SqlFileQuery -ConnectionString $connStr -QueryFilePath (Join-Path $versionRoot $q.File))
-                $csvPath = Get-ResultCsvPath -RunFolder $RunFolder -ServerName $serverName -QueryNumber $q.Number -ShortName $q.ShortName
+                $csvPath = Get-ResultCsvPath -RunFolder $serverFolder -ServerName $serverName -QueryNumber $q.Number -ShortName $q.ShortName
                 $rows | Export-Csv -LiteralPath $csvPath -NoTypeInformation -Encoding UTF8
             }
             catch {
-                $errors.Add([pscustomobject]@{ ServerName = $serverName; DatabaseName = ''; QueryNumber = $q.Number; ShortName = $q.ShortName; ErrorMessage = $_.Exception.Message; Timestamp = (Get-Date -Format o) })
+                $serverErrors.Add([pscustomobject]@{ ServerName = $serverName; DatabaseName = ''; QueryNumber = $q.Number; ShortName = $q.ShortName; ErrorMessage = $_.Exception.Message; Timestamp = (Get-Date -Format o) })
             }
         }
 
@@ -232,34 +293,39 @@ function Invoke-DiagnosticRun {
             $dbRows = @(Invoke-Sqlcmd -ConnectionString $connStr -Query 'SELECT name, database_id, state_desc FROM sys.databases' -ErrorAction Stop)
         }
         catch {
-            $errors.Add([pscustomobject]@{ ServerName = $serverName; DatabaseName = ''; QueryNumber = ''; ShortName = ''; ErrorMessage = $_.Exception.Message; Timestamp = (Get-Date -Format o) })
+            $serverErrors.Add([pscustomobject]@{ ServerName = $serverName; DatabaseName = ''; QueryNumber = ''; ShortName = ''; ErrorMessage = $_.Exception.Message; Timestamp = (Get-Date -Format o) })
+            if ($serverErrors.Count -gt 0) {
+                $serverErrors | Export-Csv -LiteralPath (Join-Path $serverFolder 'errors.csv') -NoTypeInformation -Encoding UTF8
+            }
+            $totalErrorCount += $serverErrors.Count
             continue
         }
 
         $databaseNames = Get-OnlineUserDatabaseNames -DatabaseRows $dbRows -ExcludedDatabases $excludedDatabases
 
         foreach ($dbName in $databaseNames) {
-            $dbConnStr = Build-DiagnosticConnectionString -ServerName $serverName -Database $dbName
+            $dbConnStr = Build-DiagnosticConnectionString -ServerName $serverName -Database $dbName -Encrypt $encrypt
 
             foreach ($q in $databaseQueries) {
                 try {
                     $rows = @(Invoke-SqlFileQuery -ConnectionString $dbConnStr -QueryFilePath (Join-Path $versionRoot $q.File))
                     $prefixed = Add-ResultPrefixColumns -Rows $rows -PrefixColumns ([ordered]@{ ServerName = $serverName; DatabaseName = $dbName })
-                    $csvPath = Get-ResultCsvPath -RunFolder $RunFolder -ServerName $serverName -DatabaseName $dbName -QueryNumber $q.Number -ShortName $q.ShortName
+                    $csvPath = Get-ResultCsvPath -RunFolder $serverFolder -ServerName $serverName -DatabaseName $dbName -QueryNumber $q.Number -ShortName $q.ShortName
                     $prefixed | Export-Csv -LiteralPath $csvPath -NoTypeInformation -Encoding UTF8
                 }
                 catch {
-                    $errors.Add([pscustomobject]@{ ServerName = $serverName; DatabaseName = $dbName; QueryNumber = $q.Number; ShortName = $q.ShortName; ErrorMessage = $_.Exception.Message; Timestamp = (Get-Date -Format o) })
+                    $serverErrors.Add([pscustomobject]@{ ServerName = $serverName; DatabaseName = $dbName; QueryNumber = $q.Number; ShortName = $q.ShortName; ErrorMessage = $_.Exception.Message; Timestamp = (Get-Date -Format o) })
                 }
             }
         }
+
+        if ($serverErrors.Count -gt 0) {
+            $serverErrors | Export-Csv -LiteralPath (Join-Path $serverFolder 'errors.csv') -NoTypeInformation -Encoding UTF8
+        }
+        $totalErrorCount += $serverErrors.Count
     }
 
-    if ($errors.Count -gt 0) {
-        $errors | Export-Csv -LiteralPath (Join-Path $RunFolder 'errors.csv') -NoTypeInformation -Encoding UTF8
-    }
-
-    return [pscustomobject]@{ RunFolder = $RunFolder; ErrorCount = $errors.Count }
+    return [pscustomobject]@{ RunFolder = $RunFolder; ErrorCount = $totalErrorCount }
 }
 
-Export-ModuleMember -Function Get-VersionFolderName, Read-DiagnosticManifest, Get-FilteredManifestQueries, Add-ResultPrefixColumns, Get-ResultCsvPath, Build-DiagnosticConnectionString, Get-OnlineUserDatabaseNames, Invoke-SqlFileQuery, Invoke-DiagnosticRun
+Export-ModuleMember -Function Get-VersionFolderName, Read-DiagnosticManifest, Get-FilteredManifestQueries, Add-ResultPrefixColumns, Get-SanitizedFileSystemName, Get-ResultCsvPath, Build-DiagnosticConnectionString, Test-ServerConnection, Get-OnlineUserDatabaseNames, Invoke-SqlFileQuery, Invoke-DiagnosticRun
