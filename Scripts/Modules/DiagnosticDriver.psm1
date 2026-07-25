@@ -128,7 +128,7 @@ function Get-ResultCsvPath {
     return Join-Path $RunFolder $fileName
 }
 
-function Build-DiagnosticConnectionString {
+function New-DiagnosticConnectionString {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -152,7 +152,7 @@ function Test-ServerConnection {
 
     $lastError = $null
     foreach ($encrypt in @($true, $false)) {
-        $connStr = Build-DiagnosticConnectionString -ServerName $ServerName -Encrypt $encrypt
+        $connStr = New-DiagnosticConnectionString -ServerName $ServerName -Encrypt $encrypt
         try {
             Invoke-Sqlcmd -ConnectionString $connStr -Query 'SELECT @@VERSION;' -ErrorAction Stop | Out-Null
             return [pscustomobject]@{ Success = $true; ConnectionString = $connStr; Encrypt = $encrypt; ErrorMessage = $null }
@@ -304,7 +304,7 @@ function Invoke-DiagnosticRun {
         $databaseNames = Get-OnlineUserDatabaseNames -DatabaseRows $dbRows -ExcludedDatabases $excludedDatabases
 
         foreach ($dbName in $databaseNames) {
-            $dbConnStr = Build-DiagnosticConnectionString -ServerName $serverName -Database $dbName -Encrypt $encrypt
+            $dbConnStr = New-DiagnosticConnectionString -ServerName $serverName -Database $dbName -Encrypt $encrypt
 
             foreach ($q in $databaseQueries) {
                 try {
@@ -328,4 +328,4 @@ function Invoke-DiagnosticRun {
     return [pscustomobject]@{ RunFolder = $RunFolder; ErrorCount = $totalErrorCount }
 }
 
-Export-ModuleMember -Function Get-VersionFolderName, Read-DiagnosticManifest, Get-FilteredManifestQueries, Add-ResultPrefixColumns, Get-SanitizedFileSystemName, Get-ResultCsvPath, Build-DiagnosticConnectionString, Test-ServerConnection, Get-OnlineUserDatabaseNames, Invoke-SqlFileQuery, Invoke-DiagnosticRun
+Export-ModuleMember -Function Get-VersionFolderName, Read-DiagnosticManifest, Get-FilteredManifestQueries, Add-ResultPrefixColumns, Get-SanitizedFileSystemName, Get-ResultCsvPath, New-DiagnosticConnectionString, Test-ServerConnection, Get-OnlineUserDatabaseNames, Invoke-SqlFileQuery, Invoke-DiagnosticRun
