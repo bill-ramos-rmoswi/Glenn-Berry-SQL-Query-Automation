@@ -1,0 +1,500 @@
+﻿[
+    {
+        "Number":  1,
+        "ShortName":  "Version Info",
+        "Scope":  "Instance",
+        "File":  "Instance/Query01-Version Info.sql"
+    },
+    {
+        "Number":  2,
+        "ShortName":  "Core Counts",
+        "Scope":  "Instance",
+        "File":  "Instance/Query02-Core Counts.sql"
+    },
+    {
+        "Number":  3,
+        "ShortName":  "Server Properties",
+        "Scope":  "Instance",
+        "File":  "Instance/Query03-Server Properties.sql"
+    },
+    {
+        "Number":  4,
+        "ShortName":  "Configuration Values",
+        "Scope":  "Instance",
+        "File":  "Instance/Query04-Configuration Values.sql"
+    },
+    {
+        "Number":  5,
+        "ShortName":  "Global Trace Flags",
+        "Scope":  "Instance",
+        "File":  "Instance/Query05-Global Trace Flags.sql"
+    },
+    {
+        "Number":  6,
+        "ShortName":  "Process Memory",
+        "Scope":  "Instance",
+        "File":  "Instance/Query06-Process Memory.sql"
+    },
+    {
+        "Number":  7,
+        "ShortName":  "SQL Server Services Info",
+        "Scope":  "Instance",
+        "File":  "Instance/Query07-SQL Server Services Info.sql"
+    },
+    {
+        "Number":  8,
+        "ShortName":  "Last Backup By Database",
+        "Scope":  "Instance",
+        "File":  "Instance/Query08-Last Backup By Database.sql"
+    },
+    {
+        "Number":  9,
+        "ShortName":  "SQL Server Agent Jobs",
+        "Scope":  "Instance",
+        "File":  "Instance/Query09-SQL Server Agent Jobs.sql"
+    },
+    {
+        "Number":  10,
+        "ShortName":  "SQL Server Agent Alerts",
+        "Scope":  "Instance",
+        "File":  "Instance/Query10-SQL Server Agent Alerts.sql"
+    },
+    {
+        "Number":  11,
+        "ShortName":  "SQL Server NUMA Info",
+        "Scope":  "Instance",
+        "File":  "Instance/Query11-SQL Server NUMA Info.sql"
+    },
+    {
+        "Number":  12,
+        "ShortName":  "System Memory",
+        "Scope":  "Instance",
+        "File":  "Instance/Query12-System Memory.sql"
+    },
+    {
+        "Number":  13,
+        "ShortName":  "Memory Snapshot",
+        "Scope":  "Instance",
+        "File":  "Instance/Query13-Memory Snapshot.sql"
+    },
+    {
+        "Number":  14,
+        "ShortName":  "AlwaysOn AG Cluster",
+        "Scope":  "Instance",
+        "File":  "Instance/Query14-AlwaysOn AG Cluster.sql"
+    },
+    {
+        "Number":  15,
+        "ShortName":  "AG Status",
+        "Scope":  "Instance",
+        "File":  "Instance/Query15-AG Status.sql"
+    },
+    {
+        "Number":  16,
+        "ShortName":  "Hardware Info",
+        "Scope":  "Instance",
+        "File":  "Instance/Query16-Hardware Info.sql"
+    },
+    {
+        "Number":  17,
+        "ShortName":  "System Manufacturer",
+        "Scope":  "Instance",
+        "File":  "Instance/Query17-System Manufacturer.sql"
+    },
+    {
+        "Number":  18,
+        "ShortName":  "BIOS Date",
+        "Scope":  "Instance",
+        "File":  "Instance/Query18-BIOS Date.sql"
+    },
+    {
+        "Number":  19,
+        "ShortName":  "Processor Description",
+        "Scope":  "Instance",
+        "File":  "Instance/Query19-Processor Description.sql"
+    },
+    {
+        "Number":  20,
+        "ShortName":  "Memory Dump Info",
+        "Scope":  "Instance",
+        "File":  "Instance/Query20-Memory Dump Info.sql"
+    },
+    {
+        "Number":  21,
+        "ShortName":  "Suspect Pages",
+        "Scope":  "Instance",
+        "File":  "Instance/Query21-Suspect Pages.sql"
+    },
+    {
+        "Number":  22,
+        "ShortName":  "Error Log Entries",
+        "Scope":  "Instance",
+        "File":  "Instance/Query22-Error Log Entries.sql"
+    },
+    {
+        "Number":  23,
+        "ShortName":  "TempDB Data Files",
+        "Scope":  "Instance",
+        "File":  "Instance/Query23-TempDB Data Files.sql"
+    },
+    {
+        "Number":  24,
+        "ShortName":  "Tempdb Data File Sizes",
+        "Scope":  "Instance",
+        "File":  "Instance/Query24-Tempdb Data File Sizes.sql"
+    },
+    {
+        "Number":  25,
+        "ShortName":  "Database Filenames and Paths",
+        "Scope":  "Instance",
+        "File":  "Instance/Query25-Database Filenames and Paths.sql"
+    },
+    {
+        "Number":  26,
+        "ShortName":  "Fixed Drives",
+        "Scope":  "Instance",
+        "File":  "Instance/Query26-Fixed Drives.sql"
+    },
+    {
+        "Number":  27,
+        "ShortName":  "Volume Info",
+        "Scope":  "Instance",
+        "File":  "Instance/Query27-Volume Info.sql"
+    },
+    {
+        "Number":  28,
+        "ShortName":  "Drive Level Latency",
+        "Scope":  "Instance",
+        "File":  "Instance/Query28-Drive Level Latency.sql"
+    },
+    {
+        "Number":  29,
+        "ShortName":  "IO Latency by File",
+        "Scope":  "Instance",
+        "File":  "Instance/Query29-IO Latency by File.sql"
+    },
+    {
+        "Number":  30,
+        "ShortName":  "IO Warnings",
+        "Scope":  "Instance",
+        "File":  "Instance/Query30-IO Warnings.sql"
+    },
+    {
+        "Number":  31,
+        "ShortName":  "RG Resource Pools",
+        "Scope":  "Instance",
+        "File":  "Instance/Query31-RG Resource Pools.sql"
+    },
+    {
+        "Number":  32,
+        "ShortName":  "Database Properties",
+        "Scope":  "Instance",
+        "File":  "Instance/Query32-Database Properties.sql"
+    },
+    {
+        "Number":  33,
+        "ShortName":  "Missing Indexes All Databases",
+        "Scope":  "Instance",
+        "File":  "Instance/Query33-Missing Indexes All Databases.sql"
+    },
+    {
+        "Number":  34,
+        "ShortName":  "VLF Counts",
+        "Scope":  "Instance",
+        "File":  "Instance/Query34-VLF Counts.sql"
+    },
+    {
+        "Number":  35,
+        "ShortName":  "CPU Usage by Database",
+        "Scope":  "Instance",
+        "File":  "Instance/Query35-CPU Usage by Database.sql"
+    },
+    {
+        "Number":  36,
+        "ShortName":  "IO Usage By Database",
+        "Scope":  "Instance",
+        "File":  "Instance/Query36-IO Usage By Database.sql"
+    },
+    {
+        "Number":  37,
+        "ShortName":  "Total Buffer Usage by Database",
+        "Scope":  "Instance",
+        "File":  "Instance/Query37-Total Buffer Usage by Database.sql"
+    },
+    {
+        "Number":  38,
+        "ShortName":  "Version Store Space Usage",
+        "Scope":  "Instance",
+        "File":  "Instance/Query38-Version Store Space Usage.sql"
+    },
+    {
+        "Number":  39,
+        "ShortName":  "Top Waits",
+        "Scope":  "Instance",
+        "File":  "Instance/Query39-Top Waits.sql"
+    },
+    {
+        "Number":  40,
+        "ShortName":  "Connection Counts by IP Address",
+        "Scope":  "Instance",
+        "File":  "Instance/Query40-Connection Counts by IP Address.sql"
+    },
+    {
+        "Number":  41,
+        "ShortName":  "Avg Task Counts",
+        "Scope":  "Instance",
+        "File":  "Instance/Query41-Avg Task Counts.sql"
+    },
+    {
+        "Number":  42,
+        "ShortName":  "Detect Blocking",
+        "Scope":  "Instance",
+        "File":  "Instance/Query42-Detect Blocking.sql"
+    },
+    {
+        "Number":  43,
+        "ShortName":  "Page Contention",
+        "Scope":  "Instance",
+        "File":  "Instance/Query43-Page Contention.sql"
+    },
+    {
+        "Number":  44,
+        "ShortName":  "CPU Utilization History",
+        "Scope":  "Instance",
+        "File":  "Instance/Query44-CPU Utilization History.sql"
+    },
+    {
+        "Number":  45,
+        "ShortName":  "Top Worker Time Queries",
+        "Scope":  "Instance",
+        "File":  "Instance/Query45-Top Worker Time Queries.sql"
+    },
+    {
+        "Number":  46,
+        "ShortName":  "PLE by NUMA Node",
+        "Scope":  "Instance",
+        "File":  "Instance/Query46-PLE by NUMA Node.sql"
+    },
+    {
+        "Number":  47,
+        "ShortName":  "Memory Grants Pending",
+        "Scope":  "Instance",
+        "File":  "Instance/Query47-Memory Grants Pending.sql"
+    },
+    {
+        "Number":  48,
+        "ShortName":  "Memory Clerk Usage",
+        "Scope":  "Instance",
+        "File":  "Instance/Query48-Memory Clerk Usage.sql"
+    },
+    {
+        "Number":  49,
+        "ShortName":  "Ad hoc Queries",
+        "Scope":  "Instance",
+        "File":  "Instance/Query49-Ad hoc Queries.sql"
+    },
+    {
+        "Number":  50,
+        "ShortName":  "Top Logical Reads Queries",
+        "Scope":  "Instance",
+        "File":  "Instance/Query50-Top Logical Reads Queries.sql"
+    },
+    {
+        "Number":  51,
+        "ShortName":  "Top Avg Elapsed Time Queries",
+        "Scope":  "Instance",
+        "File":  "Instance/Query51-Top Avg Elapsed Time Queries.sql"
+    },
+    {
+        "Number":  52,
+        "ShortName":  "UDF Stats by DB",
+        "Scope":  "Instance",
+        "File":  "Instance/Query52-UDF Stats by DB.sql"
+    },
+    {
+        "Number":  53,
+        "ShortName":  "Long Buffer Pool Scans",
+        "Scope":  "Instance",
+        "File":  "Instance/Query53-Long Buffer Pool Scans.sql"
+    },
+    {
+        "Number":  54,
+        "ShortName":  "File Sizes and Space",
+        "Scope":  "Database",
+        "File":  "Database/Query54-File Sizes and Space.sql"
+    },
+    {
+        "Number":  55,
+        "ShortName":  "Database-scoped Configurations",
+        "Scope":  "Database",
+        "File":  "Database/Query55-Database-scoped Configurations.sql"
+    },
+    {
+        "Number":  56,
+        "ShortName":  "IO Stats By File",
+        "Scope":  "Database",
+        "File":  "Database/Query56-IO Stats By File.sql"
+    },
+    {
+        "Number":  57,
+        "ShortName":  "Query Execution Counts",
+        "Scope":  "Database",
+        "File":  "Database/Query57-Query Execution Counts.sql"
+    },
+    {
+        "Number":  58,
+        "ShortName":  "SP Execution Counts",
+        "Scope":  "Database",
+        "File":  "Database/Query58-SP Execution Counts.sql"
+    },
+    {
+        "Number":  59,
+        "ShortName":  "SP Avg Elapsed Time",
+        "Scope":  "Database",
+        "File":  "Database/Query59-SP Avg Elapsed Time.sql"
+    },
+    {
+        "Number":  60,
+        "ShortName":  "SP Worker Time",
+        "Scope":  "Database",
+        "File":  "Database/Query60-SP Worker Time.sql"
+    },
+    {
+        "Number":  61,
+        "ShortName":  "SP Logical Reads",
+        "Scope":  "Database",
+        "File":  "Database/Query61-SP Logical Reads.sql"
+    },
+    {
+        "Number":  62,
+        "ShortName":  "SP Physical Reads",
+        "Scope":  "Database",
+        "File":  "Database/Query62-SP Physical Reads.sql"
+    },
+    {
+        "Number":  63,
+        "ShortName":  "SP Logical Writes",
+        "Scope":  "Database",
+        "File":  "Database/Query63-SP Logical Writes.sql"
+    },
+    {
+        "Number":  64,
+        "ShortName":  "SP Missing Index",
+        "Scope":  "Database",
+        "File":  "Database/Query64-SP Missing Index.sql"
+    },
+    {
+        "Number":  65,
+        "ShortName":  "Top IO Statements",
+        "Scope":  "Database",
+        "File":  "Database/Query65-Top IO Statements.sql"
+    },
+    {
+        "Number":  66,
+        "ShortName":  "Bad NC Indexes",
+        "Scope":  "Database",
+        "File":  "Database/Query66-Bad NC Indexes.sql"
+    },
+    {
+        "Number":  67,
+        "ShortName":  "Missing Indexes",
+        "Scope":  "Database",
+        "File":  "Database/Query67-Missing Indexes.sql"
+    },
+    {
+        "Number":  68,
+        "ShortName":  "Missing Index Warnings",
+        "Scope":  "Database",
+        "File":  "Database/Query68-Missing Index Warnings.sql"
+    },
+    {
+        "Number":  69,
+        "ShortName":  "Buffer Usage",
+        "Scope":  "Database",
+        "File":  "Database/Query69-Buffer Usage.sql"
+    },
+    {
+        "Number":  70,
+        "ShortName":  "Table Sizes",
+        "Scope":  "Database",
+        "File":  "Database/Query70-Table Sizes.sql"
+    },
+    {
+        "Number":  71,
+        "ShortName":  "Table Properties",
+        "Scope":  "Database",
+        "File":  "Database/Query71-Table Properties.sql"
+    },
+    {
+        "Number":  72,
+        "ShortName":  "Statistics Update",
+        "Scope":  "Database",
+        "File":  "Database/Query72-Statistics Update.sql"
+    },
+    {
+        "Number":  73,
+        "ShortName":  "Volatile Indexes",
+        "Scope":  "Database",
+        "File":  "Database/Query73-Volatile Indexes.sql"
+    },
+    {
+        "Number":  74,
+        "ShortName":  "Index Fragmentation",
+        "Scope":  "Database",
+        "File":  "Database/Query74-Index Fragmentation.sql"
+    },
+    {
+        "Number":  75,
+        "ShortName":  "Overall Index Usage - Reads",
+        "Scope":  "Database",
+        "File":  "Database/Query75-Overall Index Usage - Reads.sql"
+    },
+    {
+        "Number":  76,
+        "ShortName":  "Overall Index Usage - Writes",
+        "Scope":  "Database",
+        "File":  "Database/Query76-Overall Index Usage - Writes.sql"
+    },
+    {
+        "Number":  77,
+        "ShortName":  "Lock Waits",
+        "Scope":  "Database",
+        "File":  "Database/Query77-Lock Waits.sql"
+    },
+    {
+        "Number":  78,
+        "ShortName":  "UDF Statistics",
+        "Scope":  "Database",
+        "File":  "Database/Query78-UDF Statistics.sql"
+    },
+    {
+        "Number":  79,
+        "ShortName":  "Inlineable UDFs",
+        "Scope":  "Database",
+        "File":  "Database/Query79-Inlineable UDFs.sql"
+    },
+    {
+        "Number":  80,
+        "ShortName":  "Query Store Options",
+        "Scope":  "Database",
+        "File":  "Database/Query80-Query Store Options.sql"
+    },
+    {
+        "Number":  81,
+        "ShortName":  "Input Buffer",
+        "Scope":  "Database",
+        "File":  "Database/Query81-Input Buffer.sql"
+    },
+    {
+        "Number":  82,
+        "ShortName":  "Automatic Tuning Options",
+        "Scope":  "Database",
+        "File":  "Database/Query82-Automatic Tuning Options.sql"
+    },
+    {
+        "Number":  83,
+        "ShortName":  "Recent Full Backups",
+        "Scope":  "Database",
+        "File":  "Database/Query83-Recent Full Backups.sql"
+    }
+]
