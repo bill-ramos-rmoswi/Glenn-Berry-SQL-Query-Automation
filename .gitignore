@@ -1,2 +1,8 @@
 Results/
 dist/
+
+# Server/exclusion configs may contain real customer server names once edited locally.
+# servers.json and exclusions.json stay tracked as placeholders; any other variant
+# (servers_prod.json, exclusions_dev.json, etc.) is ignored so real names never leak in.
+Scripts/config/servers_*.json
+Scripts/config/exclusions_*.json

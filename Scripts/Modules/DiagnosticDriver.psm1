@@ -225,7 +225,8 @@ function Invoke-DiagnosticRun {
 
     New-Item -ItemType Directory -Path $RunFolder -Force | Out-Null
 
-    $servers = @(Get-Content -LiteralPath $ServersConfigPath -Raw | ConvertFrom-Json)
+    $serversJson = Get-Content -LiteralPath $ServersConfigPath -Raw | ConvertFrom-Json
+    $servers = @($serversJson)
     $exclusions = Get-Content -LiteralPath $ExclusionsConfigPath -Raw | ConvertFrom-Json
     $excludedDatabases = @($exclusions.ExcludedDatabases)
     $excludedQueryNumbers = @($exclusions.ExcludedQueryNumbers)

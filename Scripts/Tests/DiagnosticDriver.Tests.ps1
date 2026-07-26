@@ -212,6 +212,41 @@ Describe 'Get-SanitizedFileSystemName' {
     }
 }
 
+Describe 'Invoke-DiagnosticRun' {
+    BeforeAll {
+        Import-Module "$PSScriptRoot/../Modules/DiagnosticDriver.psm1" -Force
+    }
+
+    It 'processes every server in a multi-server servers.json config, not just the first' {
+        $serversPath = Join-Path $TestDrive 'servers.json'
+        '[{"ServerName":"server-one"},{"ServerName":"server-two"},{"ServerName":"server-three"}]' |
+            Set-Content -LiteralPath $serversPath -Encoding UTF8
+
+        $exclusionsPath = Join-Path $TestDrive 'exclusions.json'
+        '{"ExcludedDatabases":[],"ExcludedQueryNumbers":[]}' |
+            Set-Content -LiteralPath $exclusionsPath -Encoding UTF8
+
+        $queryLibraryRoot = Join-Path $TestDrive 'QueryLibrary'
+        New-Item -ItemType Directory -Path $queryLibraryRoot -Force | Out-Null
+
+        $runFolder = Join-Path $TestDrive 'Results'
+
+        $script:seenServerNames = [System.Collections.Generic.List[string]]::new()
+        Mock -CommandName Test-ServerConnection -ModuleName DiagnosticDriver {
+            $script:seenServerNames.Add($ServerName)
+            return [pscustomobject]@{ Success = $false; ConnectionString = $null; Encrypt = $null; ErrorMessage = 'mock: unreachable' }
+        }
+
+        Invoke-DiagnosticRun -ServersConfigPath $serversPath -ExclusionsConfigPath $exclusionsPath -QueryLibraryRoot $queryLibraryRoot -RunFolder $runFolder
+
+        Should -Invoke -CommandName Test-ServerConnection -ModuleName DiagnosticDriver -Times 3
+        $seenServerNames | Should -Be @('server-one', 'server-two', 'server-three')
+        Test-Path (Join-Path $runFolder 'server-one') | Should -Be $true
+        Test-Path (Join-Path $runFolder 'server-two') | Should -Be $true
+        Test-Path (Join-Path $runFolder 'server-three') | Should -Be $true
+    }
+}
+
 Describe 'Get-OnlineUserDatabaseNames' {
     BeforeAll {
         Import-Module "$PSScriptRoot/../Modules/DiagnosticDriver.psm1" -Force
