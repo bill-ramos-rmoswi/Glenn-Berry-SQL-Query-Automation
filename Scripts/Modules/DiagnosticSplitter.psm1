@@ -127,4 +127,76 @@ function Split-DiagnosticQueryFile {
     }
 }
 
-Export-ModuleMember -Function Get-DiagnosticQueryBlocks, Split-DiagnosticQueryFile
+function Add-CustomDiagnosticQueries {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$VersionRoot,
+
+        [Parameter(Mandatory)]
+        [string]$CustomQueriesRoot
+    )
+
+    $manifestPath = Join-Path $VersionRoot 'manifest.json'
+    $manifestEntries = @()
+    if (Test-Path -LiteralPath $manifestPath) {
+        # Do not wrap the pipeline itself in @(...) -- ConvertFrom-Json emits a single
+        # Object[] onto the pipeline for a JSON array input, so @(pipeline | ConvertFrom-Json)
+        # double-wraps it into a 1-element array-of-array. Assign first, then @() the variable.
+        $parsedManifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+        $manifestEntries = @($parsedManifest)
+    }
+
+    $headerPattern = '^--\s*(?<desc>.+?)\s*\(Query\s+(?<num>\d+)\)\s*\((?<short>[^)]+)\)\s*$'
+    $addedNumbers = [System.Collections.Generic.HashSet[int]]::new()
+
+    foreach ($scope in @('Instance', 'Database')) {
+        $customScopeDir = Join-Path $CustomQueriesRoot $scope
+        if (-not (Test-Path -LiteralPath $customScopeDir)) {
+            continue
+        }
+
+        $customFiles = @(Get-ChildItem -LiteralPath $customScopeDir -Filter '*.sql' -File)
+        if ($customFiles.Count -eq 0) {
+            continue
+        }
+
+        $targetScopeDir = Join-Path $VersionRoot $scope
+        New-Item -ItemType Directory -Path $targetScopeDir -Force | Out-Null
+
+        foreach ($file in $customFiles) {
+            $headerLine = Get-Content -LiteralPath $file.FullName | Where-Object { $_ -match $headerPattern } | Select-Object -First 1
+            if (-not $headerLine) {
+                throw "Custom query file '$($file.FullName)' has no '(Query N) (Short Name)' header line."
+            }
+            $headerMatch = [regex]::Match($headerLine, $headerPattern)
+            $number = [int]$headerMatch.Groups['num'].Value
+            $shortName = $headerMatch.Groups['short'].Value.Trim()
+
+            Copy-Item -LiteralPath $file.FullName -Destination (Join-Path $targetScopeDir $file.Name) -Force
+
+            # Idempotent: drop any prior entry for this Number before re-adding, so re-running
+            # (e.g. after editing a custom query) overwrites rather than duplicates.
+            $manifestEntries = @($manifestEntries | Where-Object { $_.Number -ne $number })
+            $manifestEntries += [pscustomobject]@{
+                Number    = $number
+                ShortName = $shortName
+                Scope     = $scope
+                File      = "$scope/$($file.Name)"
+            }
+            [void]$addedNumbers.Add($number)
+        }
+    }
+
+    ($manifestEntries | Sort-Object Number) | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath $manifestPath -Encoding UTF8
+
+    $result = [pscustomobject]@{
+        VersionRoot  = $VersionRoot
+        ManifestPath = $manifestPath
+        AddedCount   = $addedNumbers.Count
+        TotalCount   = $manifestEntries.Count
+    }
+    return $result
+}
+
+Export-ModuleMember -Function Get-DiagnosticQueryBlocks, Split-DiagnosticQueryFile, Add-CustomDiagnosticQueries

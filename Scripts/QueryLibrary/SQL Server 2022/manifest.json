@@ -508,5 +508,11 @@
         "ShortName":  "Recent Full Backups",
         "Scope":  "Database",
         "File":  "Database/Query85-Recent Full Backups.sql"
+    },
+    {
+        "Number":  100,
+        "ShortName":  "Server Role Members",
+        "Scope":  "Instance",
+        "File":  "Instance/Query100-Server Role Members.sql"
     }
 ]

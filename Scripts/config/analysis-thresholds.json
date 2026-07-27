@@ -1,0 +1,11 @@
+{
+    "DriveFreePercentWarning": 15,
+    "DriveFreePercentCritical": 5,
+    "LogUsedPercentWarning": 85,
+    "LogUsedPercentCritical": 95,
+    "FileNearMaxPercentWarning": 90,
+    "SysadminCountWarning": 5,
+    "UnusedIndexMinUptimeDays": 30,
+    "UnusedIndexMaxCpuPercent": 1.0,
+    "UnusedIndexMaxIoPercent": 1.0
+}
