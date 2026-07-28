@@ -37,7 +37,12 @@ $runsById = @{}
 foreach ($r in @(Invoke-Sqlcmd -ConnectionString $connStr -Query 'SELECT RunId, RunTimestamp FROM dbo.Runs' -ErrorAction Stop)) {
     $runsById[[int]$r.RunId] = $r.RunTimestamp
 }
-function Get-RunLabel { param($id) if ($id -and $runsById.ContainsKey([int]$id)) { $runsById[[int]$id].ToString('yyyy-MM-dd') } else { '?' } }
+# Includes the RunId (not just the date) so a finding whose "Still Open As Of" belongs to a
+# different run than the one this report was generated for -- e.g. a server only present in a
+# different, unrelated run -- is self-explanatory directly in the Attention Needed table.
+function Get-RunLabel { param($id) if ($id -and $runsById.ContainsKey([int]$id)) { "Run $([int]$id) - $($runsById[[int]$id].ToString('yyyy-MM-dd'))" } else { '?' } }
+
+$reportRunLabel = if ($runsById.ContainsKey($RunId)) { "Run $RunId - $($runsById[$RunId].ToString('yyyy-MM-dd HH:mm:ss'))" } else { "Run $RunId - ?" }
 
 $serverPropsRows = @(Invoke-Sqlcmd -ConnectionString $connStr -Query "SELECT ServerName, Edition, ProductVersion, ProductMajorVersion FROM stg.Server_Properties WHERE RunId = $RunId" -ErrorAction Stop)
 $hwRows = @(Invoke-Sqlcmd -ConnectionString $connStr -Query "SELECT ServerName, [Logical CPU Count], [Physical Memory (MB)], [SQL Server Up Time (hrs)] FROM stg.Hardware_Info WHERE RunId = $RunId" -ErrorAction Stop)
@@ -228,7 +233,7 @@ foreach ($sp in $serverPropsRows) {
             $qLinkName = Get-SanitizedFileSystemName -Name $qEntry.ShortName
             $navHtml = "<a href='../../../index.html'>Home</a> <a href='../../../attention.html'>Attention Needed</a> <a href='../../$linkName.html'>$(ConvertTo-DiagnosticHtmlEncoded $serverName)</a>"
             $detailPage = New-DiagnosticQueryDetailPage -Title $qEntry.ShortName -Description $description -ContextLabel "on $serverName" `
-                -Columns $displayColumns -Rows $displayRows -TableId 'query-detail-table' -SqlSource $sourceText -NavHtml $navHtml
+                -Columns $displayColumns -Rows $displayRows -TableId 'query-detail-table' -SqlSource $sourceText -NavHtml $navHtml -RunLabel $reportRunLabel
             Set-Content -LiteralPath (Join-Path $instanceQueriesFolder "$qLinkName.html") -Value $detailPage -Encoding UTF8
 
             $serverQueryLinks.Add([pscustomobject]@{
@@ -296,7 +301,7 @@ ORDER BY TRY_CAST([Object Size (MB)] AS DECIMAL(18,2)) DESC
                 $qLinkName = Get-SanitizedFileSystemName -Name $qEntry.ShortName
                 $navHtml = "<a href='../../../../index.html'>Home</a> <a href='../../../../attention.html'>Attention Needed</a> <a href='../../../$linkName.html'>$(ConvertTo-DiagnosticHtmlEncoded $serverName)</a> <a href='../../$dbLinkName.html'>$(ConvertTo-DiagnosticHtmlEncoded $dbName)</a>"
                 $detailPage = New-DiagnosticQueryDetailPage -Title $qEntry.ShortName -Description $description -ContextLabel "$dbName on $serverName" `
-                    -Columns $displayColumns -Rows $displayRows -TableId 'query-detail-table' -SqlSource $sourceText -NavHtml $navHtml
+                    -Columns $displayColumns -Rows $displayRows -TableId 'query-detail-table' -SqlSource $sourceText -NavHtml $navHtml -RunLabel $reportRunLabel
                 Set-Content -LiteralPath (Join-Path $dbQueriesFolder "$qLinkName.html") -Value $detailPage -Encoding UTF8
 
                 $dbQueryLinks.Add([pscustomobject]@{
@@ -309,7 +314,7 @@ ORDER BY TRY_CAST([Object Size (MB)] AS DECIMAL(18,2)) DESC
         }
 
         $dbPage = New-DiagnosticDatabasePage -ServerName $serverName -ServerLinkName $linkName -DatabaseName $dbName `
-            -FileSizes $fileObjs -NonDefaultFindings $dbFindings -UnusedIndexes $unusedIndexFindings -TableSizes $tableObjs -QueryLinks @($dbQueryLinks.ToArray())
+            -FileSizes $fileObjs -NonDefaultFindings $dbFindings -UnusedIndexes $unusedIndexFindings -TableSizes $tableObjs -QueryLinks @($dbQueryLinks.ToArray()) -RunLabel $reportRunLabel
         Set-Content -LiteralPath (Join-Path $dbFolder "$dbLinkName.html") -Value $dbPage -Encoding UTF8
 
         $dormantRow = $dormantDbRows | Where-Object { $_.ServerName -eq $serverName -and $_.DatabaseName -eq $dbName } | Select-Object -First 1
@@ -325,7 +330,7 @@ ORDER BY TRY_CAST([Object Size (MB)] AS DECIMAL(18,2)) DESC
     }
 
     $serverPage = New-DiagnosticServerPage -ServerName $serverName -ServerLinkName $linkName -Overview $overview `
-        -NonDefaultFindings $nonDefaultFindings -Drives $driveObjs -Databases @($databaseSummaries.ToArray()) -QueryLinks @($serverQueryLinks.ToArray())
+        -NonDefaultFindings $nonDefaultFindings -Drives $driveObjs -Databases @($databaseSummaries.ToArray()) -QueryLinks @($serverQueryLinks.ToArray()) -RunLabel $reportRunLabel
     Set-Content -LiteralPath (Join-Path $serversFolder "$linkName.html") -Value $serverPage -Encoding UTF8
 
     $serverSummaries.Add([pscustomobject]@{
@@ -341,10 +346,10 @@ ORDER BY TRY_CAST([Object Size (MB)] AS DECIMAL(18,2)) DESC
     })
 }
 
-$indexPage = New-DiagnosticIndexPage -Servers @($serverSummaries.ToArray()) -OpenFindings $allOpenFindings
+$indexPage = New-DiagnosticIndexPage -Servers @($serverSummaries.ToArray()) -OpenFindings $allOpenFindings -RunLabel $reportRunLabel
 Set-Content -LiteralPath (Join-Path $OutputFolder 'index.html') -Value $indexPage -Encoding UTF8
 
-$attentionPage = New-DiagnosticAttentionPage -OpenFindings @($allOpenFindings | Where-Object Severity -in @('Critical', 'Warning'))
+$attentionPage = New-DiagnosticAttentionPage -OpenFindings @($allOpenFindings | Where-Object Severity -in @('Critical', 'Warning')) -RunLabel $reportRunLabel
 Set-Content -LiteralPath (Join-Path $OutputFolder 'attention.html') -Value $attentionPage -Encoding UTF8
 
 Write-Host "Report for RunId $RunId written to '$OutputFolder' ($($serverSummaries.Count) servers)."

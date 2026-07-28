@@ -70,6 +70,16 @@ Describe 'New-DiagnosticHtmlPage' {
         $html | Should -Match '<p>hi</p>'
         $html | Should -Match '<!doctype html>'
     }
+
+    It 'omits the run banner when RunLabel is not passed' {
+        $html = New-DiagnosticHtmlPage -Title 'A' -BodyHtml '<p>hi</p>'
+        $html | Should -Not -Match "<p class='run-banner'>"
+    }
+
+    It 'renders the run banner when RunLabel is passed' {
+        $html = New-DiagnosticHtmlPage -Title 'A' -BodyHtml '<p>hi</p>' -RunLabel 'Run 1 - 2026-07-27 10:49:02'
+        $html | Should -Match "<p class='run-banner'>Run 1 - 2026-07-27 10:49:02</p>"
+    }
 }
 
 Describe 'New-DiagnosticIndexPage' {
@@ -99,6 +109,11 @@ Describe 'New-DiagnosticIndexPage' {
         $servers = @([pscustomobject]@{ ServerName = 'srv1'; LinkName = 'srv1'; VersionLabel = ''; Edition = ''; Cores = 1; RamMB = 1; MinDriveFreePercent = 99; CriticalCount = 0; WarningCount = 0 })
         $html = New-DiagnosticIndexPage -Servers $servers -OpenFindings @()
         $html | Should -Not -Match 'View all'
+    }
+
+    It 'shows the run banner when RunLabel is passed' {
+        $html = New-DiagnosticIndexPage -Servers @() -OpenFindings @() -RunLabel 'Run 1 - 2026-07-27 10:49:02'
+        $html | Should -Match "<p class='run-banner'>Run 1 - 2026-07-27 10:49:02</p>"
     }
 }
 
@@ -137,6 +152,11 @@ Describe 'New-DiagnosticAttentionPage' {
         $html = New-DiagnosticAttentionPage -OpenFindings $findings
         $html | Should -Match "href='servers/srv1.html'"
         $html | Should -Not -Match "href='servers/srv1/"
+    }
+
+    It 'shows the run banner when RunLabel is passed' {
+        $html = New-DiagnosticAttentionPage -OpenFindings @() -RunLabel 'Run 1 - 2026-07-27 10:49:02'
+        $html | Should -Match "<p class='run-banner'>Run 1 - 2026-07-27 10:49:02</p>"
     }
 }
 
@@ -193,6 +213,13 @@ Describe 'New-DiagnosticServerPage' {
         $html | Should -Match 'Query Details'
         $html | Should -Match "href='srv1/queries/Version Info.html'"
     }
+
+    It 'shows the run banner when RunLabel is passed' {
+        $overview = [pscustomobject]@{ VersionLabel = ''; Edition = ''; Cores = 1; RamMB = 1; UpTimeHours = 1 }
+        $html = New-DiagnosticServerPage -ServerName 'srv1' -ServerLinkName 'srv1' -Overview $overview `
+            -NonDefaultFindings @() -Drives @() -Databases @() -RunLabel 'Run 1 - 2026-07-27 10:49:02'
+        $html | Should -Match "<p class='run-banner'>Run 1 - 2026-07-27 10:49:02</p>"
+    }
 }
 
 Describe 'New-DiagnosticDatabasePage' {
@@ -225,6 +252,12 @@ Describe 'New-DiagnosticDatabasePage' {
             -FileSizes @() -NonDefaultFindings @() -UnusedIndexes @() -TableSizes @() -QueryLinks $links
         $html | Should -Match 'Query Details'
         $html | Should -Match "href='db1/queries/File Sizes and Space.html'"
+    }
+
+    It 'shows the run banner when RunLabel is passed' {
+        $html = New-DiagnosticDatabasePage -ServerName 'srv1' -ServerLinkName 'srv1' -DatabaseName 'db1' `
+            -FileSizes @() -NonDefaultFindings @() -UnusedIndexes @() -TableSizes @() -RunLabel 'Run 1 - 2026-07-27 10:49:02'
+        $html | Should -Match "<p class='run-banner'>Run 1 - 2026-07-27 10:49:02</p>"
     }
 }
 
@@ -269,5 +302,11 @@ Describe 'New-DiagnosticQueryDetailPage' {
         $html | Should -Match '>cut1sqlp01<'
         $html | Should -Match "<summary>View source query \(\.sql\)</summary><pre><code>SELECT @@SERVERNAME"
         $html | Should -Not -Match "<a href='[^']*\.sql'"
+    }
+
+    It 'shows the run banner when RunLabel is passed' {
+        $html = New-DiagnosticQueryDetailPage -Title 'Version Info' -Description 'desc' -ContextLabel 'on srv1' `
+            -Columns @('A') -Rows @() -TableId 'query-detail-table' -SqlSource 'SELECT 1' -RunLabel 'Run 1 - 2026-07-27 10:49:02'
+        $html | Should -Match "<p class='run-banner'>Run 1 - 2026-07-27 10:49:02</p>"
     }
 }

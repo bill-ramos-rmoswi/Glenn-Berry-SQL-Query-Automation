@@ -46,6 +46,7 @@ a { color: inherit; }
 details.sql-source { margin: 1rem 0; }
 details.sql-source summary { cursor: pointer; font-weight: 600; }
 details.sql-source pre { margin: 0.5rem 0 0; padding: 0.75rem 1rem; background: #80808014; border: 1px solid #8886; border-radius: 0.4rem; overflow-x: auto; white-space: pre; font-size: 0.85rem; }
+.run-banner { opacity: 0.7; font-size: 0.85rem; margin: 0.25rem 0 0; }
 </style>
 '@
 }
@@ -116,8 +117,12 @@ function New-DiagnosticHtmlPage {
         [Parameter(Mandatory)]
         [string]$BodyHtml,
 
-        [string]$NavHtml = ''
+        [string]$NavHtml = '',
+
+        [string]$RunLabel = ''
     )
+
+    $runBannerHtml = if ($RunLabel) { "<p class='run-banner'>$(ConvertTo-DiagnosticHtmlEncoded $RunLabel)</p>" } else { '' }
 
     $html = @"
 <!doctype html>
@@ -131,6 +136,7 @@ $(Get-DiagnosticReportStyleBlock)
 <body>
 <header class="page-header">
 <nav>$NavHtml</nav>
+$runBannerHtml
 </header>
 $BodyHtml
 $(Get-DiagnosticReportScript)
@@ -229,7 +235,9 @@ function New-DiagnosticQueryDetailPage {
         [AllowEmptyString()]
         [string]$SqlSource,
 
-        [string]$NavHtml = ''
+        [string]$NavHtml = '',
+
+        [string]$RunLabel = ''
     )
 
     $sb = [System.Text.StringBuilder]::new()
@@ -241,7 +249,7 @@ function New-DiagnosticQueryDetailPage {
     # under file:// and under SharePoint's "Strict" file handling (see README).
     [void]$sb.Append("<details class='sql-source'><summary>View source query (.sql)</summary><pre><code>$(ConvertTo-DiagnosticHtmlEncoded $SqlSource)</code></pre></details>")
 
-    return New-DiagnosticHtmlPage -Title "$Title - SFFCU Diagnostic Report" -BodyHtml $sb.ToString() -NavHtml $NavHtml
+    return New-DiagnosticHtmlPage -Title "$Title - SFFCU Diagnostic Report" -BodyHtml $sb.ToString() -NavHtml $NavHtml -RunLabel $RunLabel
 }
 
 function New-DiagnosticIndexPage {
@@ -253,7 +261,9 @@ function New-DiagnosticIndexPage {
 
         [Parameter(Mandatory)]
         [AllowEmptyCollection()]
-        [array]$OpenFindings
+        [array]$OpenFindings,
+
+        [string]$RunLabel = ''
     )
 
     $criticalCount = @($OpenFindings | Where-Object Severity -eq 'Critical').Count
@@ -289,7 +299,7 @@ function New-DiagnosticIndexPage {
     })
     [void]$sb.Append((New-DiagnosticDataTable -Columns @('Server', 'Version', 'Edition', 'Cores', 'RAM (MB)', 'Lowest Drive Free %', 'Critical', 'Warning') -Rows $rows -TableId 'servers-table' -Filterable))
 
-    return New-DiagnosticHtmlPage -Title 'SFFCU SQL Server Diagnostic Report' -BodyHtml $sb.ToString() -NavHtml "<a href='index.html'>Home</a> <a href='attention.html'>Attention Needed</a>"
+    return New-DiagnosticHtmlPage -Title 'SFFCU SQL Server Diagnostic Report' -BodyHtml $sb.ToString() -NavHtml "<a href='index.html'>Home</a> <a href='attention.html'>Attention Needed</a>" -RunLabel $RunLabel
 }
 
 function New-DiagnosticAttentionPage {
@@ -297,7 +307,9 @@ function New-DiagnosticAttentionPage {
     param(
         [Parameter(Mandatory)]
         [AllowEmptyCollection()]
-        [array]$OpenFindings
+        [array]$OpenFindings,
+
+        [string]$RunLabel = ''
     )
 
     $sb = [System.Text.StringBuilder]::new()
@@ -324,7 +336,7 @@ function New-DiagnosticAttentionPage {
     })
     [void]$sb.Append((New-DiagnosticDataTable -Columns @('Severity', 'Server', 'Database', 'Type', 'Object', 'Detail', 'First Seen', 'Still Open As Of') -Rows $rows -TableId 'attention-table' -Filterable))
 
-    return New-DiagnosticHtmlPage -Title 'Attention Needed' -BodyHtml $sb.ToString() -NavHtml "<a href='index.html'>Home</a> <a href='attention.html'>Attention Needed</a>"
+    return New-DiagnosticHtmlPage -Title 'Attention Needed' -BodyHtml $sb.ToString() -NavHtml "<a href='index.html'>Home</a> <a href='attention.html'>Attention Needed</a>" -RunLabel $RunLabel
 }
 
 function New-DiagnosticServerPage {
@@ -352,7 +364,9 @@ function New-DiagnosticServerPage {
         [array]$Databases,
 
         [AllowEmptyCollection()]
-        [array]$QueryLinks = @()
+        [array]$QueryLinks = @(),
+
+        [string]$RunLabel = ''
     )
 
     $sb = [System.Text.StringBuilder]::new()
@@ -390,7 +404,7 @@ function New-DiagnosticServerPage {
 
     [void]$sb.Append((New-DiagnosticQueryLinkList -Links $QueryLinks -Heading 'Query Details'))
 
-    return New-DiagnosticHtmlPage -Title "$ServerName - SFFCU Diagnostic Report" -BodyHtml $sb.ToString() -NavHtml "<a href='../index.html'>Home</a> <a href='../attention.html'>Attention Needed</a>"
+    return New-DiagnosticHtmlPage -Title "$ServerName - SFFCU Diagnostic Report" -BodyHtml $sb.ToString() -NavHtml "<a href='../index.html'>Home</a> <a href='../attention.html'>Attention Needed</a>" -RunLabel $RunLabel
 }
 
 function New-DiagnosticDatabasePage {
@@ -422,7 +436,9 @@ function New-DiagnosticDatabasePage {
         [array]$TableSizes,
 
         [AllowEmptyCollection()]
-        [array]$QueryLinks = @()
+        [array]$QueryLinks = @(),
+
+        [string]$RunLabel = ''
     )
 
     $sb = [System.Text.StringBuilder]::new()
@@ -465,7 +481,7 @@ function New-DiagnosticDatabasePage {
 
     [void]$sb.Append((New-DiagnosticQueryLinkList -Links $QueryLinks -Heading 'Query Details'))
 
-    return New-DiagnosticHtmlPage -Title "$DatabaseName on $ServerName - SFFCU Diagnostic Report" -BodyHtml $sb.ToString() -NavHtml "<a href='../../index.html'>Home</a> <a href='../../attention.html'>Attention Needed</a> <a href='../$ServerLinkName.html'>$(ConvertTo-DiagnosticHtmlEncoded $ServerName)</a>"
+    return New-DiagnosticHtmlPage -Title "$DatabaseName on $ServerName - SFFCU Diagnostic Report" -BodyHtml $sb.ToString() -NavHtml "<a href='../../index.html'>Home</a> <a href='../../attention.html'>Attention Needed</a> <a href='../$ServerLinkName.html'>$(ConvertTo-DiagnosticHtmlEncoded $ServerName)</a>" -RunLabel $RunLabel
 }
 
 Export-ModuleMember -Function ConvertTo-DiagnosticHtmlEncoded, Get-DiagnosticReportStyleBlock, Get-DiagnosticReportScript, `

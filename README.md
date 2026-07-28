@@ -146,7 +146,12 @@ powershell -NoProfile -File Scripts/New-DiagnosticReport.ps1 -OutputFolder dist/
   `Scripts/config/analysis-thresholds.json`.
 - `dbo.Findings` in the staging database tracks each issue's first-detected and last-detected run, and marks
   it resolved once a later run no longer detects it — that's what powers the "still open since" / "resolved"
-  view in the generated report instead of every run starting from a blank slate.
+  view in the generated report instead of every run starting from a blank slate. Because this tracking spans
+  *every* run ever imported (not just the one the report was generated for), the Attention Needed page can
+  surface findings for a server that isn't part of the current report's server set (e.g. a one-off test run
+  against a different instance) — every generated page shows a "Run N - date time" banner identifying which
+  run the report itself reflects, and Attention Needed's "First Seen"/"Still Open As Of" columns include the
+  RunId alongside the date so a finding from a different run is identifiable directly in the table.
 - The generated report (`index.html`, `attention.html`, `servers/<server>.html`,
   `servers/<server>/<database>.html`) is self-contained static HTML/CSS/JS — no server needed, so the
   `-OutputFolder` contents can be uploaded as-is to a SharePoint/OneDrive document library.
