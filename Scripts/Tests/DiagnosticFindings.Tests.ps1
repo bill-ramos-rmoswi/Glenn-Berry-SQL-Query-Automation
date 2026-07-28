@@ -95,3 +95,79 @@ Describe 'Get-FindingsDelta' {
         $delta.ToResolve.Count | Should -Be 0
     }
 }
+
+Describe 'Get-DiagnosticRunServerNames' {
+    BeforeAll {
+        Import-Module "$PSScriptRoot/../Modules/DiagnosticFindings.psm1" -Force
+    }
+
+    It 'returns an empty array when stg.Server_Properties does not exist' {
+        Mock -CommandName Invoke-Sqlcmd -ModuleName DiagnosticFindings -MockWith { [pscustomobject]@{ Id = $null } } -ParameterFilter { $Query -like 'SELECT OBJECT_ID*' }
+
+        $result = @(Get-DiagnosticRunServerNames -ConnectionString 'fake' -RunId 1)
+
+        $result.Count | Should -Be 0
+        Should -Invoke Invoke-Sqlcmd -ModuleName DiagnosticFindings -Times 1 -Exactly
+    }
+
+    It 'returns the distinct ServerNames staged for that RunId' {
+        Mock -CommandName Invoke-Sqlcmd -ModuleName DiagnosticFindings -MockWith { [pscustomobject]@{ Id = 123 } } -ParameterFilter { $Query -like 'SELECT OBJECT_ID*' }
+        Mock -CommandName Invoke-Sqlcmd -ModuleName DiagnosticFindings -MockWith {
+            @(
+                [pscustomobject]@{ ServerName = 'localhost' }
+                [pscustomobject]@{ ServerName = 'otherserver' }
+            )
+        } -ParameterFilter { $Query -like 'SELECT DISTINCT ServerName*' }
+
+        $result = @(Get-DiagnosticRunServerNames -ConnectionString 'fake' -RunId 2)
+
+        $result.Count | Should -Be 2
+        $result | Should -Contain 'localhost'
+        $result | Should -Contain 'otherserver'
+    }
+}
+
+Describe 'Update-DiagnosticFindings' {
+    BeforeAll {
+        Import-Module "$PSScriptRoot/../Modules/DiagnosticFindings.psm1" -Force
+    }
+
+    It 'scopes previously-open findings to the servers actually staged in this run, so servers absent from the run are never resolved' {
+        # Regression test: a run against a subset of servers (e.g. one server) must not resolve
+        # findings belonging to servers that weren't part of this run at all -- reproduced for
+        # real against dbo.Findings before this scoping was added (see Update-DiagnosticFindings).
+        $analysisFolder = Join-Path $TestDrive 'Analysis'
+        New-Item -ItemType Directory -Path $analysisFolder -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $analysisFolder 'FakeRule.sql') -Value '-- fake rule' -Encoding UTF8
+
+        Mock -CommandName Get-DiagnosticRunServerNames -ModuleName DiagnosticFindings -MockWith { @('localhost') }
+        Mock -CommandName Invoke-DiagnosticFindingsWrite -ModuleName DiagnosticFindings -MockWith { }
+
+        Mock -CommandName Invoke-Sqlcmd -ModuleName DiagnosticFindings -MockWith { @() } -ParameterFilter { $null -ne $InputFile }
+        Mock -CommandName Invoke-Sqlcmd -ModuleName DiagnosticFindings -MockWith { @() } -ParameterFilter { $null -ne $Query }
+
+        Update-DiagnosticFindings -ConnectionString 'fake' -RunId 2 -AnalysisScriptsFolder $analysisFolder -Thresholds @{}
+
+        Should -Invoke Invoke-Sqlcmd -ModuleName DiagnosticFindings -Times 1 -Exactly -ParameterFilter {
+            $null -ne $Query -and $Query -match "ServerName IN \('localhost'\)"
+        }
+    }
+
+    It 'excludes every previously-open finding when the run has no known staged servers, rather than resolving all of them' {
+        $analysisFolder = Join-Path $TestDrive 'AnalysisEmpty'
+        New-Item -ItemType Directory -Path $analysisFolder -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $analysisFolder 'FakeRule.sql') -Value '-- fake rule' -Encoding UTF8
+
+        Mock -CommandName Get-DiagnosticRunServerNames -ModuleName DiagnosticFindings -MockWith { @() }
+        Mock -CommandName Invoke-DiagnosticFindingsWrite -ModuleName DiagnosticFindings -MockWith { }
+
+        Mock -CommandName Invoke-Sqlcmd -ModuleName DiagnosticFindings -MockWith { @() } -ParameterFilter { $null -ne $InputFile }
+        Mock -CommandName Invoke-Sqlcmd -ModuleName DiagnosticFindings -MockWith { @() } -ParameterFilter { $null -ne $Query }
+
+        Update-DiagnosticFindings -ConnectionString 'fake' -RunId 99 -AnalysisScriptsFolder $analysisFolder -Thresholds @{}
+
+        Should -Invoke Invoke-Sqlcmd -ModuleName DiagnosticFindings -Times 1 -Exactly -ParameterFilter {
+            $null -ne $Query -and $Query -match 'AND 1 = 0'
+        }
+    }
+}

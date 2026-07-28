@@ -125,14 +125,14 @@ WHERE RunId = $RunId AND ServerName = N'$($serverName -replace "'", "''")' AND D
         $tableRows = @()
         if ((Invoke-Sqlcmd -ConnectionString $connStr -Query "SELECT OBJECT_ID('stg.Table_Sizes') AS Id" -ErrorAction SilentlyContinue).Id) {
             $tableRows = @(Invoke-Sqlcmd -ConnectionString $connStr -Query @"
-SELECT TOP 20 [Table Name], [Row Counts], [Total Space (MB)]
+SELECT TOP 20 [Table Name], [Row Count], [Object Size (MB)]
 FROM stg.Table_Sizes
 WHERE RunId = $RunId AND ServerName = N'$($serverName -replace "'", "''")' AND DatabaseName = N'$($dbName -replace "'", "''")'
-ORDER BY TRY_CAST([Total Space (MB)] AS DECIMAL(18,2)) DESC
+ORDER BY TRY_CAST([Object Size (MB)] AS DECIMAL(18,2)) DESC
 "@ -ErrorAction SilentlyContinue)
         }
         $tableObjs = @(foreach ($tr in $tableRows) {
-            [pscustomobject]@{ TableName = $tr.'Table Name'; RowCounts = $tr.'Row Counts'; TotalSpaceMB = $tr.'Total Space (MB)' }
+            [pscustomobject]@{ TableName = $tr.'Table Name'; RowCounts = $tr.'Row Count'; TotalSpaceMB = $tr.'Object Size (MB)' }
         })
 
         $dbPage = New-DiagnosticDatabasePage -ServerName $serverName -ServerLinkName $linkName -DatabaseName $dbName `

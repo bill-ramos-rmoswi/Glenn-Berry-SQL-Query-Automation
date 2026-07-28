@@ -151,6 +151,29 @@ VALUES (@ServerName, @DatabaseName, @FindingType, @ObjectName, @Severity, @Detai
     }
 }
 
+function Get-DiagnosticRunServerNames {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$ConnectionString,
+
+        [Parameter(Mandatory)]
+        [int]$RunId
+    )
+
+    # stg.Server_Properties is populated by Query 3 ("Server Properties"), present in every SQL
+    # Server version's query library, so it's the reliable source of "which servers did this run
+    # actually cover" -- guarded the same way Scripts/Analysis/*.sql guards a missing staged table.
+    $tableCheck = Invoke-Sqlcmd -ConnectionString $ConnectionString -Query "SELECT OBJECT_ID('stg.Server_Properties') AS Id" -ErrorAction Stop
+    if (-not $tableCheck.Id) {
+        return @()
+    }
+
+    $rows = @(Invoke-Sqlcmd -ConnectionString $ConnectionString -Query "SELECT DISTINCT ServerName FROM stg.Server_Properties WHERE RunId = $RunId" -ErrorAction Stop)
+    $names = @($rows | ForEach-Object { $_.ServerName })
+    return $names
+}
+
 function Update-DiagnosticFindings {
     [CmdletBinding()]
     param(
@@ -174,6 +197,22 @@ function Update-DiagnosticFindings {
         $sqlVariables += "$key=$($Thresholds[$key])"
     }
 
+    # A run only re-examines the servers it actually staged (e.g. a one-off test run against a
+    # single server, or an incremental addition). Reconciliation must only resolve previously-open
+    # findings for THOSE servers -- otherwise every server absent from this run's candidate set
+    # (because the analysis SQL filters candidates to `WHERE RunId = @RunId`) looks "no longer
+    # detected" and gets wrongly marked resolved. Verified breaking dbo.Findings for real: a
+    # localhost-only test run marked 1954 findings resolved across six unrelated production
+    # servers until this scoping was added.
+    $runServerNames = @(Get-DiagnosticRunServerNames -ConnectionString $ConnectionString -RunId $RunId)
+    if ($runServerNames.Count -gt 0) {
+        $escapedServerNames = @($runServerNames | ForEach-Object { "'" + ($_ -replace "'", "''") + "'" })
+        $serverNameFilter = "AND ServerName IN ($($escapedServerNames -join ','))"
+    }
+    else {
+        $serverNameFilter = 'AND 1 = 0'
+    }
+
     $summary = [System.Collections.Generic.List[pscustomobject]]::new()
 
     foreach ($scriptFile in $scriptFiles) {
@@ -182,14 +221,15 @@ function Update-DiagnosticFindings {
             $candidates = @(Invoke-Sqlcmd -ConnectionString $ConnectionString -InputFile $scriptFile.FullName -Variable $sqlVariables -ErrorAction Stop)
 
             # Every rule file in this repo emits exactly one FindingType matching its own base
-            # name (see Scripts/Analysis/*.sql). Scope "previously open" to that FindingType so a
-            # rule with zero candidates this run still resolves what it previously flagged.
+            # name (see Scripts/Analysis/*.sql). Scope "previously open" to that FindingType (so a
+            # rule with zero candidates this run still resolves what it previously flagged) AND to
+            # this run's own server set (see $serverNameFilter above).
             # Invoke-Sqlcmd has no -SqlParameters binding in this module version, so this uses a
             # manually quote-escaped literal rather than a real bound parameter; $ruleName is our
             # own script file's base name, not external input, so this is safe.
             $escapedRuleName = $ruleName -replace "'", "''"
             $previousOpen = @(Invoke-Sqlcmd -ConnectionString $ConnectionString `
-                -Query "SELECT FindingId, ServerName, DatabaseName, FindingType, ObjectName, Severity, Detail FROM dbo.Findings WHERE ResolvedRunId IS NULL AND FindingType = '$escapedRuleName'" `
+                -Query "SELECT FindingId, ServerName, DatabaseName, FindingType, ObjectName, Severity, Detail FROM dbo.Findings WHERE ResolvedRunId IS NULL AND FindingType = '$escapedRuleName' $serverNameFilter" `
                 -ErrorAction Stop)
 
             $delta = Get-FindingsDelta -PreviousOpenFindings $previousOpen -CurrentCandidates $candidates
@@ -219,4 +259,4 @@ function Update-DiagnosticFindings {
     return @($summary.ToArray())
 }
 
-Export-ModuleMember -Function Get-FindingNaturalKey, Get-FindingsDelta, Invoke-DiagnosticFindingsWrite, Update-DiagnosticFindings
+Export-ModuleMember -Function Get-FindingNaturalKey, Get-FindingsDelta, Get-DiagnosticRunServerNames, Invoke-DiagnosticFindingsWrite, Update-DiagnosticFindings

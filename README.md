@@ -150,6 +150,13 @@ powershell -NoProfile -File Scripts/New-DiagnosticReport.ps1 -OutputFolder dist/
 - The generated report (`index.html`, `attention.html`, `servers/<server>.html`,
   `servers/<server>/<database>.html`) is self-contained static HTML/CSS/JS — no server needed, so the
   `-OutputFolder` contents can be uploaded as-is to a SharePoint/OneDrive document library.
+  - **Don't click through the pages directly in the SharePoint web UI.** Modern SharePoint/OneDrive libraries
+    default to "Strict" browser file handling, which forces `.html`/`.htm` files to download instead of
+    rendering inline — `index.html` opens in a preview overlay, and every link (e.g. a server name) downloads
+    another copy into the local Downloads folder instead of navigating. This is a SharePoint serving setting,
+    not a problem with the report's links. Have recipients use SharePoint's **Download** button on the report
+    folder to get a ZIP, extract it locally, and open `index.html` from disk — all the relative links between
+    pages work correctly once viewed from a local folder.
 
 ### Refreshing the data (e.g. a monthly re-run)
 
