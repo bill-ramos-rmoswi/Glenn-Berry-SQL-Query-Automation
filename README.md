@@ -150,6 +150,15 @@ powershell -NoProfile -File Scripts/New-DiagnosticReport.ps1 -OutputFolder dist/
 - The generated report (`index.html`, `attention.html`, `servers/<server>.html`,
   `servers/<server>/<database>.html`) is self-contained static HTML/CSS/JS — no server needed, so the
   `-OutputFolder` contents can be uploaded as-is to a SharePoint/OneDrive document library.
+- Pass `-IncludeQueryDetails` to also generate a "Query Details" section at the bottom of every server and
+  database page: one link per Glenn Berry diagnostic query that returned data for that server/database in the
+  run, each opening a sortable/filterable page of that query's raw staged rows (hover a link to see the
+  query's original description), with the exact query text from the query library shown inline in a
+  collapsible "View source query (.sql)" block (embedded rather than linked as a separate `.sql` file, since
+  a link to a `.sql` file gets treated as a download instead of opening inline, both under `file://` and
+  under SharePoint's "Strict" file handling). This is opt-in because it multiplies the number of generated
+  files substantially (roughly one extra page per query per server/database) and adds one batch SQL query per
+  distinct staged table in the run (still independent of server/database count).
   - **Don't click through the pages directly in the SharePoint web UI.** Modern SharePoint/OneDrive libraries
     default to "Strict" browser file handling, which forces `.html`/`.htm` files to download instead of
     rendering inline — `index.html` opens in a preview overlay, and every link (e.g. a server name) downloads

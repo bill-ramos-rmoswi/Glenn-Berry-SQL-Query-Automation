@@ -176,6 +176,23 @@ Describe 'New-DiagnosticServerPage' {
             -NonDefaultFindings @() -Drives @() -Databases @()
         $html | Should -Match 'None open'
     }
+
+    It 'omits the Query Details section when QueryLinks is not passed (default report generation is unaffected)' {
+        $overview = [pscustomobject]@{ VersionLabel = ''; Edition = ''; Cores = 1; RamMB = 1; UpTimeHours = 1 }
+        $html = New-DiagnosticServerPage -ServerName 'srv1' -ServerLinkName 'srv1' -Overview $overview `
+            -NonDefaultFindings @() -Drives @() -Databases @()
+        $html | Should -Not -Match 'Query Details'
+        $html | Should -Not -Match "<ul class='query-links'>"
+    }
+
+    It 'renders the Query Details section when QueryLinks is passed' {
+        $overview = [pscustomobject]@{ VersionLabel = ''; Edition = ''; Cores = 1; RamMB = 1; UpTimeHours = 1 }
+        $links = @([pscustomobject]@{ Number = 1; ShortName = 'Version Info'; Description = 'SQL and OS Version information'; Href = 'srv1/queries/Version Info.html' })
+        $html = New-DiagnosticServerPage -ServerName 'srv1' -ServerLinkName 'srv1' -Overview $overview `
+            -NonDefaultFindings @() -Drives @() -Databases @() -QueryLinks $links
+        $html | Should -Match 'Query Details'
+        $html | Should -Match "href='srv1/queries/Version Info.html'"
+    }
 }
 
 Describe 'New-DiagnosticDatabasePage' {
@@ -193,5 +210,64 @@ Describe 'New-DiagnosticDatabasePage' {
         $html = New-DiagnosticDatabasePage -ServerName 'srv1' -ServerLinkName 'srv1' -DatabaseName 'db1' `
             -FileSizes @() -NonDefaultFindings @() -UnusedIndexes @() -TableSizes @()
         $html | Should -Match 'None flagged'
+    }
+
+    It 'omits the Query Details section when QueryLinks is not passed (default report generation is unaffected)' {
+        $html = New-DiagnosticDatabasePage -ServerName 'srv1' -ServerLinkName 'srv1' -DatabaseName 'db1' `
+            -FileSizes @() -NonDefaultFindings @() -UnusedIndexes @() -TableSizes @()
+        $html | Should -Not -Match 'Query Details'
+        $html | Should -Not -Match "<ul class='query-links'>"
+    }
+
+    It 'renders the Query Details section when QueryLinks is passed' {
+        $links = @([pscustomobject]@{ Number = 54; ShortName = 'File Sizes and Space'; Description = 'File sizes and space'; Href = 'db1/queries/File Sizes and Space.html' })
+        $html = New-DiagnosticDatabasePage -ServerName 'srv1' -ServerLinkName 'srv1' -DatabaseName 'db1' `
+            -FileSizes @() -NonDefaultFindings @() -UnusedIndexes @() -TableSizes @() -QueryLinks $links
+        $html | Should -Match 'Query Details'
+        $html | Should -Match "href='db1/queries/File Sizes and Space.html'"
+    }
+}
+
+Describe 'New-DiagnosticQueryLinkList' {
+    BeforeAll {
+        Import-Module "$PSScriptRoot/../Modules/DiagnosticReport.psm1" -Force
+    }
+
+    It 'returns an empty string for an empty Links array' {
+        New-DiagnosticQueryLinkList -Links @() -Heading 'Query Details' | Should -Be ''
+    }
+
+    It 'renders one link per entry, sorted by Number, with a tooltip combining Description and ShortName' {
+        $links = @(
+            [pscustomobject]@{ Number = 3; ShortName = 'Server Properties'; Description = 'Selected server properties'; Href = 'queries/Server Properties.html' }
+            [pscustomobject]@{ Number = 1; ShortName = 'Version Info'; Description = 'SQL and OS Version information for current instance'; Href = 'queries/Version Info.html' }
+        )
+
+        $html = New-DiagnosticQueryLinkList -Links $links -Heading 'Query Details'
+
+        $html | Should -Match '<h2>Query Details</h2>'
+        $html | Should -Match "href='queries/Version Info.html' title='SQL and OS Version information for current instance \(Version Info\)'"
+        $html.IndexOf('Version Info') | Should -BeLessThan $html.IndexOf('Server Properties')
+    }
+}
+
+Describe 'New-DiagnosticQueryDetailPage' {
+    BeforeAll {
+        Import-Module "$PSScriptRoot/../Modules/DiagnosticReport.psm1" -Force
+    }
+
+    It 'renders the title, description/context line, data table, and the source query embedded inline (not linked as a file)' {
+        $sql = "SELECT @@SERVERNAME AS [Server Name], @@VERSION AS [SQL Server and OS Version Info];"
+        $html = New-DiagnosticQueryDetailPage -Title 'Version Info' -Description 'SQL and OS Version information for current instance' `
+            -ContextLabel 'on cut1sqlp01' -Columns @('Server Name', 'Version') -Rows @(, @('cut1sqlp01', '2019')) `
+            -TableId 'query-detail-table' -SqlSource $sql `
+            -NavHtml "<a href='../../../index.html'>Home</a>"
+
+        $html | Should -Match '<h1>Version Info</h1>'
+        $html | Should -Match 'SQL and OS Version information for current instance'
+        $html | Should -Match 'on cut1sqlp01'
+        $html | Should -Match '>cut1sqlp01<'
+        $html | Should -Match "<summary>View source query \(\.sql\)</summary><pre><code>SELECT @@SERVERNAME"
+        $html | Should -Not -Match "<a href='[^']*\.sql'"
     }
 }

@@ -40,6 +40,12 @@ input.diag-filter { padding: 0.35rem 0.5rem; margin: 0.5rem 0; width: 100%; max-
 .summary-card .count { font-size: 1.6rem; font-weight: 700; display: block; }
 .muted { opacity: 0.7; font-size: 0.85rem; }
 a { color: inherit; }
+.query-links { display: flex; flex-wrap: wrap; gap: 0.4rem 0.6rem; margin: 0.5rem 0 1.5rem; padding: 0; list-style: none; }
+.query-links a { display: inline-block; padding: 0.2rem 0.6rem; border: 1px solid #8886; border-radius: 0.4rem; font-size: 0.85rem; text-decoration: none; }
+.query-links a:hover { background: #80808022; }
+details.sql-source { margin: 1rem 0; }
+details.sql-source summary { cursor: pointer; font-weight: 600; }
+details.sql-source pre { margin: 0.5rem 0 0; padding: 0.75rem 1rem; background: #80808014; border: 1px solid #8886; border-radius: 0.4rem; overflow-x: auto; white-space: pre; font-size: 0.85rem; }
 </style>
 '@
 }
@@ -170,6 +176,74 @@ function New-DiagnosticDataTable {
     return $sb.ToString()
 }
 
+function New-DiagnosticQueryLinkList {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [array]$Links,
+
+        [Parameter(Mandatory)]
+        [string]$Heading
+    )
+
+    if ($Links.Count -eq 0) {
+        return ''
+    }
+
+    $sb = [System.Text.StringBuilder]::new()
+    [void]$sb.Append("<h2>$(ConvertTo-DiagnosticHtmlEncoded $Heading)</h2>")
+    [void]$sb.Append("<ul class='query-links'>")
+    foreach ($link in ($Links | Sort-Object Number)) {
+        $tooltip = "$($link.Description) ($($link.ShortName))"
+        [void]$sb.Append("<li><a href='$($link.Href)' title='$(ConvertTo-DiagnosticHtmlEncoded $tooltip)'>$($link.Number) &middot; $(ConvertTo-DiagnosticHtmlEncoded $link.ShortName)</a></li>")
+    }
+    [void]$sb.Append('</ul>')
+    return $sb.ToString()
+}
+
+function New-DiagnosticQueryDetailPage {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Title,
+
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$Description,
+
+        [Parameter(Mandatory)]
+        [string]$ContextLabel,
+
+        [Parameter(Mandatory)]
+        [string[]]$Columns,
+
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [array]$Rows,
+
+        [Parameter(Mandatory)]
+        [string]$TableId,
+
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$SqlSource,
+
+        [string]$NavHtml = ''
+    )
+
+    $sb = [System.Text.StringBuilder]::new()
+    [void]$sb.Append("<h1>$(ConvertTo-DiagnosticHtmlEncoded $Title)</h1>")
+    [void]$sb.Append("<p class='muted'>$(ConvertTo-DiagnosticHtmlEncoded $Description) &mdash; $(ConvertTo-DiagnosticHtmlEncoded $ContextLabel)</p>")
+    [void]$sb.Append((New-DiagnosticDataTable -Columns $Columns -Rows $Rows -TableId $TableId -Filterable))
+    # Embedded directly (rather than a link to a copied .sql file) because a link to a .sql file
+    # gets treated as an unrecognized download by the browser instead of opening inline -- both
+    # under file:// and under SharePoint's "Strict" file handling (see README).
+    [void]$sb.Append("<details class='sql-source'><summary>View source query (.sql)</summary><pre><code>$(ConvertTo-DiagnosticHtmlEncoded $SqlSource)</code></pre></details>")
+
+    return New-DiagnosticHtmlPage -Title "$Title - SFFCU Diagnostic Report" -BodyHtml $sb.ToString() -NavHtml $NavHtml
+}
+
 function New-DiagnosticIndexPage {
     [CmdletBinding()]
     param(
@@ -275,7 +349,10 @@ function New-DiagnosticServerPage {
 
         [Parameter(Mandatory)]
         [AllowEmptyCollection()]
-        [array]$Databases
+        [array]$Databases,
+
+        [AllowEmptyCollection()]
+        [array]$QueryLinks = @()
     )
 
     $sb = [System.Text.StringBuilder]::new()
@@ -311,6 +388,8 @@ function New-DiagnosticServerPage {
     })
     [void]$sb.Append((New-DiagnosticDataTable -Columns @('Database', 'Critical', 'Warning', 'Info', 'Idle Indexes') -Rows $dbRows -TableId 'databases-table' -Filterable))
 
+    [void]$sb.Append((New-DiagnosticQueryLinkList -Links $QueryLinks -Heading 'Query Details'))
+
     return New-DiagnosticHtmlPage -Title "$ServerName - SFFCU Diagnostic Report" -BodyHtml $sb.ToString() -NavHtml "<a href='../index.html'>Home</a> <a href='../attention.html'>Attention Needed</a>"
 }
 
@@ -340,7 +419,10 @@ function New-DiagnosticDatabasePage {
 
         [Parameter(Mandatory)]
         [AllowEmptyCollection()]
-        [array]$TableSizes
+        [array]$TableSizes,
+
+        [AllowEmptyCollection()]
+        [array]$QueryLinks = @()
     )
 
     $sb = [System.Text.StringBuilder]::new()
@@ -381,9 +463,12 @@ function New-DiagnosticDatabasePage {
     })
     [void]$sb.Append((New-DiagnosticDataTable -Columns @('Table', 'Row Count', 'Total Space (MB)') -Rows $tableRows -TableId 'table-sizes-table' -Filterable))
 
+    [void]$sb.Append((New-DiagnosticQueryLinkList -Links $QueryLinks -Heading 'Query Details'))
+
     return New-DiagnosticHtmlPage -Title "$DatabaseName on $ServerName - SFFCU Diagnostic Report" -BodyHtml $sb.ToString() -NavHtml "<a href='../../index.html'>Home</a> <a href='../../attention.html'>Attention Needed</a> <a href='../$ServerLinkName.html'>$(ConvertTo-DiagnosticHtmlEncoded $ServerName)</a>"
 }
 
 Export-ModuleMember -Function ConvertTo-DiagnosticHtmlEncoded, Get-DiagnosticReportStyleBlock, Get-DiagnosticReportScript, `
-    New-DiagnosticSeverityBadge, New-DiagnosticHtmlPage, New-DiagnosticDataTable, New-DiagnosticIndexPage, `
-    New-DiagnosticAttentionPage, New-DiagnosticServerPage, New-DiagnosticDatabasePage
+    New-DiagnosticSeverityBadge, New-DiagnosticHtmlPage, New-DiagnosticDataTable, New-DiagnosticQueryLinkList, `
+    New-DiagnosticQueryDetailPage, New-DiagnosticIndexPage, New-DiagnosticAttentionPage, New-DiagnosticServerPage, `
+    New-DiagnosticDatabasePage
