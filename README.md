@@ -188,6 +188,85 @@ powershell -NoProfile -File Scripts/New-DiagnosticReport.ps1 -OutputFolder dist/
    automatically uses the most recently imported run (highest `RunTimestamp` in `dbo.Runs`), so you don't need
    to look up the new `RunId` by hand for routine refreshes.
 
+### Adding a server to an existing run
+
+If a server's results are missing from a run you've already imported (e.g. it was unreachable during
+the original collection, or you collected it separately later), you don't need to re-collect or
+re-import everything — `Import-DiagnosticResultsFolder`'s per-file resumability (see below) means
+adding the missing server's CSVs alongside the existing ones and re-running the import only touches
+the new files.
+
+1. If you don't already have the missing server's CSVs, collect them (e.g. `Invoke-DiagnosticRun.ps1`
+   against a `servers.json` scoped to just that server, into a fresh `Results/<timestamp>/<Server>/`
+   folder).
+2. Copy that server's folder so it becomes a sibling of the other server folders inside the **target
+   run's** `Results/<timestamp>/` folder, e.g.:
+   ```powershell
+   Copy-Item -Recurse "Results/<source timestamp>/<Server>" "Results/<target timestamp>/<Server>"
+   ```
+3. Re-run the import against the target run's folder — do **not** pass a new `-ResultsFolder`, reuse
+   the existing one:
+   ```powershell
+   powershell -NoProfile -File Scripts/Import-DiagnosticResults.ps1 -ResultsFolder Results/<target timestamp>
+   ```
+   Because `RunFolderName` is unchanged, this reuses the *same* `RunId` — every already-imported file
+   is skipped (logged `Success` in `dbo.ImportLog`), and only the new server's CSVs get staged.
+4. Re-run `Update-DiagnosticFindings` (see "Refreshing the data" above) with that same `RunId` so the
+   new server's data gets analyzed into `dbo.Findings` — skipping this leaves the server imported but
+   invisible on the Attention Needed page.
+5. Regenerate the report: `Scripts/New-DiagnosticReport.ps1 -OutputFolder dist/report -RunId <RunId>`.
+
+### Deleting a run
+
+There's no built-in cmdlet for this (the toolset is designed to only ever add/evolve data), and it's
+destructive, so treat it as a manual, careful operation — **only safe when the run's server(s) don't
+appear in any other run** (e.g. a one-off test run against a server you don't normally track).
+`dbo.Findings` tracks issues by `ServerName` across *every* run, so if a server also appears in other
+runs, deleting by `ServerName` would destroy finding history that other runs still depend on; this
+procedure doesn't cover that case.
+
+1. Identify the `RunId` and confirm which servers it contains:
+   ```sql
+   SELECT RunId, RunTimestamp, RunFolderName FROM dbo.Runs ORDER BY RunId;
+   SELECT ServerName FROM stg.Server_Properties WHERE RunId = <RunId>;
+   ```
+2. **Confirm none of those servers appear in any other run** — stop here if this returns any rows:
+   ```sql
+   SELECT ServerName FROM stg.Server_Properties WHERE RunId = <RunId>
+   INTERSECT
+   SELECT ServerName FROM stg.Server_Properties WHERE RunId <> <RunId>;
+   ```
+3. Delete the run's findings (`dbo.Findings.FirstDetectedRunId`/`LastDetectedRunId`/`ResolvedRunId`
+   all have `FOREIGN KEY REFERENCES dbo.Runs(RunId)`, so this must happen before step 6):
+   ```sql
+   DELETE FROM dbo.Findings WHERE ServerName IN (<server list from step 1>);
+   ```
+4. Delete the run's import log (also FK-referenced):
+   ```sql
+   DELETE FROM dbo.ImportLog WHERE RunId = <RunId>;
+   ```
+5. Delete the run's rows from every `stg.*` table — these are dynamically created per query with no
+   FK, so loop over all of them rather than guessing which ones have data for this run:
+   ```powershell
+   Import-Module .\Scripts\Modules\DiagnosticStaging.psm1 -Force
+   Import-Module SqlServer -Force
+   $cred = Get-DiagnosticStagingCredential -Protocol sql -HostName localhost -Path GlennBerrySQLDiag/LLMAgent
+   $connStr = New-DiagnosticSqlAuthConnectionString -ServerName localhost -Database GlennBerrySQLDiag -Username $cred.Username -Password $cred.Password
+   $runId = <RunId>
+   $tables = Invoke-Sqlcmd -ConnectionString $connStr -Query "SELECT name FROM sys.tables WHERE schema_id = SCHEMA_ID('stg')"
+   foreach ($t in $tables) {
+       Invoke-Sqlcmd -ConnectionString $connStr -Query "DELETE FROM stg.[$($t.name)] WHERE RunId = $runId"
+   }
+   ```
+   Empty tables are left in place rather than dropped, consistent with this codebase never removing schema.
+6. Delete the run itself, last (once every FK dependent is cleared):
+   ```sql
+   DELETE FROM dbo.Runs WHERE RunId = <RunId>;
+   ```
+   `RunId` is an `IDENTITY` column with no reseed — the next imported run gets a new, higher `RunId`,
+   not the one you just deleted.
+7. Regenerate the report to confirm the run/server no longer appears anywhere.
+
 ### Recovering from a failed or interrupted import
 
 `Import-DiagnosticResultsFolder` records one row per file in `dbo.ImportLog` (`Status` = `Success` or
